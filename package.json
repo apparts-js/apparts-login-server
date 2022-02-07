@@ -41,7 +41,7 @@
     "jsonwebtoken": "^8.5.1"
   },
   "devDependencies": {
-    "@apparts/backend-test": "^1.0.2",
+    "@apparts/backend-test": "^1.2.0",
     "eslint": "^8.8.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-jest": "^26.1.0",
