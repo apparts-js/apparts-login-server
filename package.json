@@ -32,7 +32,7 @@
   "author": "Philipp Uhl",
   "license": "MIT",
   "dependencies": {
-    "@apparts/config": "^1.0.5",
+    "@apparts/config": "^1.0.6",
     "@apparts/db": "^2.1.1",
     "@apparts/error": "^1.1.0",
     "@apparts/model": "^4.0.2",
