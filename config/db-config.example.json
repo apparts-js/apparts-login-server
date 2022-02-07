@@ -1,22 +1,22 @@
 {
-  "deploy" : {
-    "use" : "postgresql",
-    "postgresql" : {
-      "user" : "postgres",
-      "pw" : "123456",
-      "host" : "localhost",
-      "port" : 5432,
-      "db" : "towndata"
+  "deploy": {
+    "use": "postgresql",
+    "postgresql": {
+      "user": "postgres",
+      "pw": "123456",
+      "host": "localhost",
+      "port": 5432,
+      "db": "towndata"
     }
   },
-  "debug" : {
-    "use" : "postgresql",
-    "postgresql" : {
-      "user" : "postgres",
-      "pw" : "123456",
-      "host" : "localhost",
-      "port" : 5432,
-      "db" : "login"
+  "debug": {
+    "use": "postgresql",
+    "postgresql": {
+      "user": "postgres",
+      "pw": "123456",
+      "host": "localhost",
+      "port": 5432,
+      "db": "login"
     }
   }
 }

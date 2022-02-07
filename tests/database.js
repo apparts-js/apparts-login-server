@@ -1,19 +1,27 @@
 const { Client } = require("pg");
 const connect = require("@apparts/db");
 
-const DB_CONFIG = require("@apparts/config").get("db-test-config");
+const _dbConfig = require("@apparts/config").get("db-test-config");
+const dbConfig = {
+  ..._dbConfig,
+  postgresql: {
+    ..._dbConfig.postgresql,
+    password: _dbConfig.postgresql.pw,
+  },
+};
+
 let dbs = null;
 
 const setup = async (schemas, setupSql, dbName) => {
   try {
-    await createOrDropDatabase("DROP", DB_CONFIG.postgresql, dbName);
+    await createOrDropDatabase("DROP", dbConfig.postgresql, dbName);
   } catch (e) {
     console.log("DROP DID NOT WORK", e);
     // Can happen, not a problem
   }
-  await createOrDropDatabase("CREATE", DB_CONFIG.postgresql, dbName);
+  await createOrDropDatabase("CREATE", dbConfig.postgresql, dbName);
   const tempDBConfig = {
-    ...DB_CONFIG.postgresql,
+    ...dbConfig.postgresql,
     db: dbName,
     database: dbName,
   };
@@ -55,7 +63,7 @@ const teardown = async () => {
 };
 
 const singleEntry = async (dbName, sql) => {
-  const tempDBConfig = { ...DB_CONFIG.postgresql, database: dbName };
+  const tempDBConfig = { ...dbConfig.postgresql, database: dbName };
   const pool = new Client(tempDBConfig);
   await pool.connect();
   const response = await pool.query(sql);

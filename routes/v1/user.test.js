@@ -7,18 +7,12 @@ const useUserRoutes = require("./user");
 
 const { useUser } = _useUser();
 
-const {
-  checkType,
-  allChecked,
-  app,
-  url,
-  error,
-  getPool,
-} = require("@apparts/backend-test")({
-  testName: "user",
-  apiContainer: require("./user")(useUser, mailObj),
-  ...require("./tests/config.js"),
-});
+const { checkType, allChecked, app, url, error, getPool } =
+  require("@apparts/backend-test")({
+    testName: "user",
+    apiContainer: require("./user")(useUser, mailObj),
+    ...require("./tests/config.js"),
+  });
 
 addRoutes(app, useUser, mailObj);
 
