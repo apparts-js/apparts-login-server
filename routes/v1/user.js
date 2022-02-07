@@ -5,8 +5,8 @@ const {
   prepauthPW: prepauthPW_,
   prepauthToken: prepauthToken_,
 } = require("@apparts/types");
-const { HttpError, exceptionTo, catchException } = require("@apparts/error");
-const { NotUnique, NotFound, DoesExist } = require("@apparts/model");
+const { HttpError, exceptionTo } = require("@apparts/error");
+const { NotFound, DoesExist } = require("@apparts/model");
 const UserSettings = require("@apparts/config").get("login-config");
 
 const useUserRoutes = (useUser, mail) => {
@@ -19,7 +19,7 @@ const useUserRoutes = (useUser, mail) => {
         ...UserSettings.extraTypes,
       },
     },
-    async ({ dbs, body: { email, ...extra } }, req) => {
+    async ({ dbs, body: { email, ...extra } }) => {
       const [, User] = useUser(dbs);
       const me = new User({
         email: email.toLowerCase(),
@@ -47,7 +47,7 @@ const useUserRoutes = (useUser, mail) => {
 
   const getUser = prepauthToken(
     {},
-    async function (_, me) {
+    async (_, me) => {
       return me.getPublic();
     },
     {
@@ -61,7 +61,7 @@ const useUserRoutes = (useUser, mail) => {
 
   const getToken = prepauthPW(
     {},
-    async function (req, me) {
+    async (req, me) => {
       const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
@@ -88,7 +88,7 @@ const useUserRoutes = (useUser, mail) => {
 
   const getAPIToken = prepauthToken(
     {},
-    async function (req, me) {
+    async (req, me) => {
       const apiToken = await me.getAPIToken();
       return apiToken;
     },
@@ -106,7 +106,7 @@ const useUserRoutes = (useUser, mail) => {
 
   const deleteUser = prepauthPW(
     {},
-    async function (_, me) {
+    async (_, me) => {
       await me.deleteMe();
       return "ok";
     },
@@ -125,9 +125,7 @@ const useUserRoutes = (useUser, mail) => {
         password: { type: "password", optional: true },
       },
     },
-    async function ({ dbs, body: { password } }, me) {
-      const [, , NoUser] = useUser(dbs);
-
+    async ({ body: { password } }, me) => {
       if (me.resetTokenUsed) {
         if (!password) {
           return new HttpError(400, "Password required");
@@ -190,7 +188,7 @@ const useUserRoutes = (useUser, mail) => {
         email: { type: "email" },
       },
     },
-    async function ({ dbs, params: { email } }) {
+    async ({ dbs, params: { email } }) => {
       const [, User] = useUser(dbs);
 
       const me = new User();

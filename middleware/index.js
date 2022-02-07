@@ -1,8 +1,5 @@
 const bodyParser = require("body-parser");
-const R = require("ramda");
 const connect = require("@apparts/db");
-
-const tapRoute = (f) => R.tap((route) => route.use(f));
 
 let DB_CONFIG = null;
 let dbs = undefined;
@@ -30,7 +27,7 @@ const injectDB = (req, res, next) => {
   });
 };
 
-const applyMiddleware = (route, dbConfig, noCors = false) => {
+const applyMiddleware = (route, dbConfig) => {
   DB_CONFIG = dbConfig;
   route.use(bodyParser.json());
   route.use(injectDB);

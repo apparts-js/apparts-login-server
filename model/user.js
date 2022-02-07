@@ -75,7 +75,7 @@ module.exports = (types, collectionName = "users") => {
       return this;
     }
 
-    async checkAuth(token, email) {
+    async checkAuth(token) {
       return await this._checkToken(token);
     }
 
@@ -91,7 +91,7 @@ module.exports = (types, collectionName = "users") => {
       }
     }
 
-    checkAuthPw(password, email) {
+    checkAuthPw(password) {
       return this._checkPw(password);
     }
 
@@ -102,7 +102,7 @@ module.exports = (types, collectionName = "users") => {
     }
 
     genToken() {
-      return new Promise((res, rej) => {
+      return new Promise((res) => {
         crypto.randomBytes(UserSettings.tokenLength, (err, token) => {
           /* istanbul ignore if */
           if (err) {

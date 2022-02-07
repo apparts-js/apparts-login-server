@@ -9,8 +9,6 @@ for (const key of Object.keys(eslintrc.rules)) {
 newRules = {
   ...newRules,
   indent: "off",
-  "@typescript-eslint/indent": "off",
-  "@typescript-eslint/no-explicit-any": "off",
 };
 
 module.exports = {

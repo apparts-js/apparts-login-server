@@ -35,7 +35,7 @@ module.exports = (apithing, { api, schemas }, dbs, name) => {
 
   const runDBQuery = async (queryRunner) => {
     const dbs = await new Promise((res, rej) => {
-      const dbs = connect(myDbConfig, (e, dbs) => {
+      connect(myDbConfig, (e, dbs) => {
         if (e) {
           rej(e);
         }

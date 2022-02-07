@@ -114,7 +114,7 @@ describe("getToken", () => {
   });
 
   test("Extra infos in token", async () => {
-    const [Users, User, NoUser] = useUser();
+    const [, User] = useUser();
 
     class User1 extends User {
       getExtraAPITokenContent() {
@@ -163,7 +163,7 @@ describe("getAPIToken", () => {
   });
   test("Wrong token", async () => {
     const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    await new User().load({ email: "tester@test.de" });
 
     const response = await request(app)
       .get(url("user/apiToken"))
@@ -240,7 +240,7 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
   });
   test("Success with extra data", async () => {
-    const [Users, User, NoUser] = useUser();
+    const [, User] = useUser();
 
     const mockFn = jest.fn();
 
@@ -433,7 +433,7 @@ describe("alter user", () => {
   });
   test("Alter password with resetToken", async () => {
     const [, User] = useUser(getPool());
-    const response = await request(app).post(url("user/tester@test.de/reset"));
+    await request(app).post(url("user/tester@test.de/reset"));
     const user = await new User().load({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
@@ -480,7 +480,7 @@ describe("alter user", () => {
   });
   test("Omit password on pw reset", async () => {
     const [, User] = useUser(getPool());
-    const response = await request(app).post(url("user/tester@test.de/reset"));
+    await request(app).post(url("user/tester@test.de/reset"));
     const user = await new User().load({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
@@ -542,8 +542,8 @@ describe("delete user", () => {
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Delete user", async () => {
-    const [, User, NoUser] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const [, User] = useUser(getPool());
+    await new User().load({ email: "tester@test.de" });
 
     const response1 = await request(app)
       .get(url("user/login"))
