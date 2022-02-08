@@ -142,27 +142,6 @@ describe("getToken", () => {
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getToken")).toBeTruthy();
   });
-  test("Extra dynamic infos in token", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
-    const response = await request(app)
-      .get(url("user/login"))
-      .auth("tester@test.de", "a12345678")
-      .send({
-        extraDynamicContent: {
-          venueId: "2",
-        },
-      });
-    expect(response.body).toMatchObject({
-      id: user.content.id,
-      loginToken: user.content.token,
-      apiToken: jwt("tester@test.de", user.content.id, {
-        venueId: "2",
-      }),
-    });
-    expect(response.statusCode).toBe(200);
-    expect(checkType(response, "getToken")).toBeTruthy();
-  });
 });
 
 describe("getAPIToken", () => {
@@ -214,21 +193,15 @@ describe("getAPIToken", () => {
   test("Extra dynamic infos in token", async () => {
     const [, User] = useUser(getPool());
     const user = await new User().load({ email: "tester@test.de" });
-    const response = await request(app)
-      .get(url("user/apiToken"))
-      .auth("tester@test.de", user.content.token)
-      .send({
-        extraDynamicContent: {
-          venueId: "2",
-        },
-      });
-    expect(response.body).toBe(
+    const response = await user.getAPIToken({
+      venueId: "2",
+    });
+    expect(response).toBe(
       jwt("tester@test.de", user.content.id, {
+        tada: 4,
         venueId: "2",
       })
     );
-    expect(response.statusCode).toBe(200);
-    expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Call getAPIToken on invalid user", async () => {
     const [, User] = useUser(getPool());

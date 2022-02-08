@@ -60,13 +60,9 @@ const useUserRoutes = (useUser, mail) => {
   );
 
   const getToken = prepauthPW(
-    {
-      body: {
-        extraDynamicContent: { type: "/", optional: true },
-      },
-    },
-    async ({ body: { extraDynamicContent } }, me) => {
-      const apiToken = await me.getAPIToken(extraDynamicContent);
+    {},
+    async (req, me) => {
+      const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
         loginToken: me.content.token,
@@ -91,13 +87,9 @@ const useUserRoutes = (useUser, mail) => {
   );
 
   const getAPIToken = prepauthToken(
-    {
-      body: {
-        extraDynamicContent: { type: "/", optional: true },
-      },
-    },
-    async ({ body: { extraDynamicContent } }, me) => {
-      const apiToken = await me.getAPIToken(extraDynamicContent);
+    {},
+    async (req, me) => {
+      const apiToken = await me.getAPIToken();
       return apiToken;
     },
     {
