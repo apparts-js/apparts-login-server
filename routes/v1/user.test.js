@@ -190,6 +190,19 @@ describe("getAPIToken", () => {
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
+  test("Extra dynamic infos in token", async () => {
+    const [, User] = useUser(getPool());
+    const user = await new User().load({ email: "tester@test.de" });
+    const response = await user.getAPIToken({
+      venueId: "2",
+    });
+    expect(response).toBe(
+      jwt("tester@test.de", user.content.id, {
+        tada: 4,
+        venueId: "2",
+      })
+    );
+  });
   test("Call getAPIToken on invalid user", async () => {
     const [, User] = useUser(getPool());
     const user = new User({});
