@@ -129,7 +129,7 @@ module.exports = (types, collectionName = "users") => {
 
     async getExtraAPITokenContent() {}
 
-    async getAPIToken(extraDynamicContent = {}) {
+    async getAPIToken(extraDynamicContent = {}, extraJWTOptions = {}) {
       if (!this._checkTypes([this.content])) {
         throw new Error("User: getAPIToken called on a non-valid user");
       }
@@ -141,7 +141,10 @@ module.exports = (types, collectionName = "users") => {
         ...extra,
         ...extraDynamicContent,
       };
-      return await JWT.sign(payload, webtokenkey, { expiresIn: expireTime });
+      return await JWT.sign(payload, webtokenkey, {
+        expiresIn: expireTime,
+        ...extraJWTOptions,
+      });
     }
 
     async deleteMe() {

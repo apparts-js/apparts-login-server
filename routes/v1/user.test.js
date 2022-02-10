@@ -20,7 +20,7 @@ const {
   apiToken: { webtokenkey, expireTime },
 } = require("@apparts/config").get("login-config");
 const JWT = require("jsonwebtoken");
-const jwt = (email, id, extra = {}, action = "login") =>
+const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
   JWT.sign(
     {
       id,
@@ -29,7 +29,7 @@ const jwt = (email, id, extra = {}, action = "login") =>
       ...extra,
     },
     webtokenkey,
-    { expiresIn: expireTime }
+    { expiresIn }
   );
 
 let dateNowAll;
@@ -201,6 +201,27 @@ describe("getAPIToken", () => {
         tada: 4,
         venueId: "2",
       })
+    );
+  });
+  test("Extra dynamic options of token", async () => {
+    const [, User] = useUser(getPool());
+    const user = await new User().load({ email: "tester@test.de" });
+    const response = await user.getAPIToken(
+      {},
+      {
+        expiresIn: "2 days",
+      }
+    );
+    expect(response).toBe(
+      jwt(
+        "tester@test.de",
+        user.content.id,
+        {
+          tada: 4,
+        },
+        "login",
+        "2 days"
+      )
     );
   });
   test("Call getAPIToken on invalid user", async () => {
