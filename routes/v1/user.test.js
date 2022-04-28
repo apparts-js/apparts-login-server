@@ -18,8 +18,10 @@ const { checkType, allChecked, app, url, error, getPool } =
 
 addRoutes(app, useUser, mailObj);
 
-const { updateUser: updateOtherUser } = useUserRoutes(useOtherUser, mailObj);
+const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
+  useUserRoutes(useOtherUser, mailObj);
 app.put("/v/1/other/user", updateOtherUser);
+app.get("/v/1/other/user/login", getOtherUserToken);
 
 const {
   apiToken: { webtokenkey, expireTime },
@@ -146,6 +148,44 @@ describe("getToken", () => {
     });
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getToken")).toBeTruthy();
+  });
+
+  it("should back off exponentilly on failed login", async () => {
+    const responses = [];
+    for (let i = 0; i < 7; i++) {
+      responses.push(
+        await request(app)
+          .get(url("other/user/login"))
+          .auth("tester@test.de", "b12345678")
+      );
+    }
+
+    expect(responses).toMatchObject([
+      { statusCode: 401 },
+      { statusCode: 401 },
+      { statusCode: 401 },
+      { statusCode: 401 },
+      { statusCode: 401 },
+      { statusCode: 425 },
+      { statusCode: 425 },
+    ]);
+
+    dateNowAll = jest
+      .spyOn(Date, "now")
+      .mockImplementation(() => 1575158400000 + 1000 * 60 * 60 * 9.7 * 3);
+
+    const lastResponse = await request(app)
+      .get(url("other/user/login"))
+      .auth("tester@test.de", "b12345678");
+    expect(lastResponse).toMatchObject({ statusCode: 401 });
+    const veryLastResponse = await request(app)
+      .get(url("other/user/login"))
+      .auth("tester@test.de", "b12345678");
+    expect(veryLastResponse).toMatchObject({ statusCode: 425 });
+
+    dateNowAll = jest
+      .spyOn(Date, "now")
+      .mockImplementation(() => 1575158400000 + 1000 * 60 * 60 * 9.7);
   });
 });
 

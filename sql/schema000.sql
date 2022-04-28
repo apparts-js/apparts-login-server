@@ -9,3 +9,10 @@ CREATE TABLE users (
        createdOn BIGINT NOT NULL
 );
 
+
+CREATE TABLE logins (
+       id SERIAL PRIMARY KEY,
+       created BIGINT NOT NULL,
+       "userId" INT NOT NULL,
+       success BOOLEAN
+);

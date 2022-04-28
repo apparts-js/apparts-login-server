@@ -142,7 +142,31 @@ const { PasswordNotValidError } = require("@apparts/login-server");
   }
 #+END_SRC
 
-*** Customizing the User-model
+*** Login: Exponential Backoff
+
+To archive exponential backoff you need to create a database table
+=logins= and use the =createUseLogins= function to generate the model.
+
+Then you can overwrite the =checkAuthPw= function of the user model:
+
+#+BEGIN_SRC js
+const { createUseLogins } = require("@apparts/login-server");
+const { useLogin } = createUseLogins();
+
+const { checkAuthPwExponential } = require("@apparts/login-server");
+
+//...
+
+  checkAuthPw(password) {
+    return checkAuthPwExponential(
+      this._dbs,
+      useLogin,
+      this.content.id,
+      password,
+      (password) => super.checkAuthPw(password)
+    );
+  }
+#+END_SRC
 
 *** Overwriting functions of the User-model
 

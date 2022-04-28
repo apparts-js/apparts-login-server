@@ -1,5 +1,13 @@
 const { makeModel } = require("@apparts/model");
-const { createUseUser, PasswordNotValidError } = require("../");
+const {
+  createUseUser,
+  createUseLogins,
+  PasswordNotValidError,
+  checkAuthPwExponential,
+} = require("../");
+
+const { useLogin } = createUseLogins();
+
 const { Users, User, NoUser } = createUseUser({}, "users");
 
 class _OtherUser extends User {
@@ -9,6 +17,16 @@ class _OtherUser extends User {
     }
     await super.setPw(password);
     return this;
+  }
+
+  checkAuthPw(password) {
+    return checkAuthPwExponential(
+      this._dbs,
+      useLogin,
+      this.content.id,
+      password,
+      (password) => super.checkAuthPw(password)
+    );
   }
 }
 

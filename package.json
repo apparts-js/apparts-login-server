@@ -35,7 +35,7 @@
     "@apparts/config": "^1.0.6",
     "@apparts/db": "^2.1.1",
     "@apparts/error": "^1.1.0",
-    "@apparts/model": "^4.0.2",
+    "@apparts/model": "^4.6.1",
     "@apparts/types": "^6.1.2",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^8.5.1"
