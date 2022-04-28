@@ -177,6 +177,9 @@ describe("getToken", () => {
       { statusCode: 425 },
       { statusCode: 425 },
     ]);
+    for (const response of responses) {
+      expect(checkType(response, "getToken")).toBeTruthy();
+    }
 
     dateNowAll = jest
       .spyOn(Date, "now")
@@ -186,10 +189,12 @@ describe("getToken", () => {
       .get(url("other/user/login"))
       .auth("tester@test.de", "b12345678");
     expect(lastResponse).toMatchObject({ statusCode: 401 });
+    expect(checkType(lastResponse, "getToken")).toBeTruthy();
     const veryLastResponse = await request(app)
       .get(url("other/user/login"))
       .auth("tester@test.de", "b12345678");
     expect(veryLastResponse).toMatchObject({ statusCode: 425 });
+    expect(checkType(veryLastResponse, "getToken")).toBeTruthy();
 
     dateNowAll = jest
       .spyOn(Date, "now")

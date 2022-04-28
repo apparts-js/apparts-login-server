@@ -83,6 +83,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
           },
         },
         { status: 401, error: "Unauthorized" },
+        { status: 425, error: "Login failed, too often." },
       ],
     }
   );
