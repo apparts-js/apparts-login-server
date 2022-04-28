@@ -160,12 +160,20 @@ describe("getToken", () => {
       );
     }
 
+    responses.push(
+      await request(app)
+        .get(url("other/user/login"))
+        // now try correct login, should fail too
+        .auth("tester@test.de", "a12345678")
+    );
+
     expect(responses).toMatchObject([
       { statusCode: 401 },
       { statusCode: 401 },
       { statusCode: 401 },
       { statusCode: 401 },
       { statusCode: 401 },
+      { statusCode: 425 },
       { statusCode: 425 },
       { statusCode: 425 },
     ]);
