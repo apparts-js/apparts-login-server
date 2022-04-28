@@ -120,9 +120,29 @@ They are:
   extra parameters will be passed to the ~setExtra~ function (see
   [[Overwriting the User-model]]).
 
+*** Defining password policies
+
+To require certain passwords, you can overwrite the =setPw= function of
+the user model. The new function should validate the password
+requirements and in case of success call =await super.setPw(password)=
+to set the password. In case of rejection a =PasswordNotValidError=
+should be thrown.
+
+#+BEGIN_SRC js
+const { PasswordNotValidError } = require("@apparts/login-server");
+
+//...
+
+  async setPw(password) {
+    if (password.length < 10) {
+      throw new PasswordNotValidError("Password must be 10+ characters");
+    }
+    await super.setPw(password);
+    return this;
+  }
+#+END_SRC
+
 *** Customizing the User-model
-
-
 
 *** Overwriting functions of the User-model
 

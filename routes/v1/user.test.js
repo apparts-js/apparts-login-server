@@ -7,6 +7,8 @@ const useUserRoutes = require("./user");
 
 const { useUser } = _useUser();
 
+const { useOtherUser } = require("../../tests/otherUser");
+
 const { checkType, allChecked, app, url, error, getPool } =
   require("@apparts/backend-test")({
     testName: "user",
@@ -15,6 +17,9 @@ const { checkType, allChecked, app, url, error, getPool } =
   });
 
 addRoutes(app, useUser, mailObj);
+
+const { updateUser: updateOtherUser } = useUserRoutes(useOtherUser, mailObj);
+app.put("/v/1/other/user", updateOtherUser);
 
 const {
   apiToken: { webtokenkey, expireTime },
@@ -427,6 +432,7 @@ describe("alter user", () => {
     expect(response.statusCode).toBe(400);
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
+
   test("Alter password with loginToken", async () => {
     const [, User] = useUser(getPool());
     const user = await new User().load({ email: "tester@test.de" });
@@ -465,6 +471,7 @@ describe("alter user", () => {
 
     expect(checkType(response2, "updateUser")).toBeTruthy();
   });
+
   test("Alter password with resetToken", async () => {
     const [, User] = useUser(getPool());
     await request(app).post(url("user/tester@test.de/reset"));
@@ -496,6 +503,24 @@ describe("alter user", () => {
 
     expect(checkType(response2, "updateUser")).toBeTruthy();
   });
+
+  test("Refuses to alter password if password does not meet requirements", async () => {
+    const [, User] = useUser(getPool());
+    await request(app).post(url("user/tester@test.de/reset"));
+    const user = await new User().load({ email: "tester@test.de" });
+
+    const response2 = await request(app)
+      .put(url("other/user"))
+      .auth("tester@test.de", user.content.tokenforreset)
+      .send({ password: "?aoR!!" });
+    expect(response2.statusCode).toBe(400);
+    expect(response2.body).toMatchObject({
+      description: "Password must be 10+ characters",
+      error: "The new password does not meet all requirements",
+    });
+    expect(checkType(response2, "updateUser")).toBeTruthy();
+  });
+
   test("Don't alter anything", async () => {
     const [, User] = useUser(getPool());
     const user = await new User().load({ email: "tester@test.de" });

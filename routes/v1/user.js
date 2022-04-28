@@ -8,15 +8,16 @@ const {
 const { HttpError, exceptionTo } = require("@apparts/error");
 const { NotFound, DoesExist } = require("@apparts/model");
 const UserSettings = require("@apparts/config").get("login-config");
+const { PasswordNotValidError } = require("../../errors");
 
-const useUserRoutes = (useUser, mail) => {
+const useUserRoutes = (useUser, mail, settings = UserSettings) => {
   const prepauthPW = prepauthPW_(useUser()[1]);
   const prepauthToken = prepauthToken_(useUser()[1]);
   const addUser = preparator(
     {
       body: {
         email: { type: "email" },
-        ...UserSettings.extraTypes,
+        ...settings.extraTypes,
       },
     },
     async ({ dbs, body: { email, ...extra } }) => {
@@ -130,7 +131,6 @@ const useUserRoutes = (useUser, mail) => {
         if (!password) {
           return new HttpError(400, "Password required");
         }
-        me.content.tokenforreset = null;
       }
 
       if (!password) {
@@ -139,21 +139,22 @@ const useUserRoutes = (useUser, mail) => {
 
       /* istanbul ignore else */
       if (password) {
-        await me.setPw(password);
+        try {
+          await me.setPw(password);
+        } catch (e) {
+          if (e instanceof PasswordNotValidError) {
+            return new HttpError(
+              400,
+              "The new password does not meet all requirements",
+              e.message
+            );
+          }
+          throw e;
+        }
         await me.genToken();
       }
-      /* if (email) {
-        try {
-          await new NoUser().loadNone({ email: email.toLowerCase() });
-          me.content.email = email.toLowerCase();
-        } catch (e) {
-          return exceptionTo(
-            DoesExist,
-            e,
-            new HttpError(400, "Email exists already")
-          );
-        }
-      }*/
+
+      me.content.tokenforreset = null;
       await me.update();
       const apiToken = await me.getAPIToken();
       return {
@@ -177,6 +178,10 @@ const useUserRoutes = (useUser, mail) => {
         },
         { status: 400, error: "Nothing to update" },
         { status: 400, error: "Password required" },
+        {
+          status: 400,
+          error: "The new password does not meet all requirements",
+        },
         { status: 401, error: "Unauthorized" },
       ],
     }
