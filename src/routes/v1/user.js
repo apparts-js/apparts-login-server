@@ -1,24 +1,37 @@
-"use strict";
-
+const { prepare, HttpError, httpErrorSchema } = require("@apparts/prep");
 const {
-  preparator,
   prepauthPW: prepauthPW_,
   prepauthToken: prepauthToken_,
-} = require("@apparts/types");
-const { HttpError, exceptionTo } = require("@apparts/error");
+} = require("../../prepauth");
 const { NotFound, DoesExist } = require("@apparts/model");
 const UserSettings = require("@apparts/config").get("login-config");
 const { PasswordNotValidError } = require("../../errors");
 
+const makeSchema = (type) => ({
+  getType() {
+    return type;
+  },
+  getModelType() {
+    return type;
+  },
+});
+
 const useUserRoutes = (useUser, mail, settings = UserSettings) => {
   const prepauthPW = prepauthPW_(useUser()[1]);
   const prepauthToken = prepauthToken_(useUser()[1]);
-  const addUser = preparator(
+  const addUser = prepare(
     {
-      body: {
-        email: { type: "email" },
-        ...settings.extraTypes,
+      title: "Add a user",
+      receives: {
+        body: makeSchema({
+          email: { type: "email" },
+          ...settings.extraTypes,
+        }),
       },
+      returns: [
+        makeSchema({ value: "ok" }),
+        httpErrorSchema(413, "User exists"),
+      ],
     },
     async ({ dbs, body: { email, ...extra } }) => {
       const [, User] = useUser(dbs);
@@ -31,37 +44,48 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       try {
         await me.store();
       } catch (e) {
-        return exceptionTo(DoesExist, e, new HttpError(413, "User exists"));
+        if (e instanceof DoesExist) {
+          return new HttpError(413, "User exists");
+        }
+        throw e;
       }
       const { title, body } = me.getWelcomeMail();
       await mail.sendMail(email, body, title);
       return "ok";
-    },
-    {
-      title: "Add a user",
-      returns: [
-        { status: 200, value: "ok" },
-        { status: 413, error: "User exists" },
-      ],
     }
   );
 
   const getUser = prepauthToken(
-    {},
-    async (_, me) => {
-      return me.getPublic();
-    },
     {
       title: "Get a user",
+      receives: {},
       returns: [
-        { status: 200, type: "object", values: { type: "/" } },
-        { status: 401, error: "Unauthorized" },
+        makeSchema({ type: "object", values: { type: "/" } }),
+        httpErrorSchema(401, "Unauthorized"),
       ],
+    },
+    async (_, me) => {
+      return me.getPublic();
     }
   );
 
   const getToken = prepauthPW(
-    {},
+    {
+      title: "Login",
+      receives: {},
+      returns: [
+        makeSchema({
+          type: "object",
+          keys: {
+            id: { type: "id" },
+            loginToken: { type: "base64" },
+            apiToken: { type: "string" },
+          },
+        }),
+        httpErrorSchema(401, "Unauthorized"),
+        httpErrorSchema(425, "Login failed, too often."),
+      ],
+    },
     async (req, me) => {
       const apiToken = await me.getAPIToken();
       return {
@@ -69,63 +93,64 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         loginToken: me.content.token,
         apiToken,
       };
-    },
+    }
+  );
+
+  const getAPIToken = prepauthToken(
     {
-      title: "Login",
+      title: "Renew API Token",
+      receives: {},
       returns: [
-        {
-          status: 200,
+        makeSchema({
+          type: "string",
+        }),
+        httpErrorSchema(401, "Unauthorized"),
+      ],
+    },
+    async (req, me) => {
+      const apiToken = await me.getAPIToken();
+      return apiToken;
+    }
+  );
+
+  const deleteUser = prepauthPW(
+    {
+      title: "Delete a user",
+      receives: {},
+      returns: [
+        makeSchema({ value: "ok" }),
+        httpErrorSchema(401, "Unauthorized"),
+      ],
+    },
+    async (_, me) => {
+      await me.deleteMe();
+      return "ok";
+    }
+  );
+
+  const updateUser = prepauthToken(
+    {
+      title: "Update a user",
+      description: "Currently, only updating the password is supported.",
+      receives: {
+        body: makeSchema({
+          password: { type: "password", optional: true },
+        }),
+      },
+      returns: [
+        makeSchema({
           type: "object",
           keys: {
             id: { type: "id" },
             loginToken: { type: "base64" },
             apiToken: { type: "string" },
           },
-        },
-        { status: 401, error: "Unauthorized" },
-        { status: 425, error: "Login failed, too often." },
+        }),
+        httpErrorSchema(400, "Nothing to update"),
+        httpErrorSchema(400, "Password required"),
+        httpErrorSchema(400, "The new password does not meet all requirements"),
+        httpErrorSchema(401, "Unauthorized"),
       ],
-    }
-  );
-
-  const getAPIToken = prepauthToken(
-    {},
-    async (req, me) => {
-      const apiToken = await me.getAPIToken();
-      return apiToken;
-    },
-    {
-      title: "Renew API Token",
-      returns: [
-        {
-          status: 200,
-          type: "string",
-        },
-        { status: 401, error: "Unauthorized" },
-      ],
-    }
-  );
-
-  const deleteUser = prepauthPW(
-    {},
-    async (_, me) => {
-      await me.deleteMe();
-      return "ok";
-    },
-    {
-      title: "Delete a user",
-      returns: [
-        { status: 200, value: "ok" },
-        { status: 401, error: "Unauthorized" },
-      ],
-    }
-  );
-
-  const updateUser = prepauthToken(
-    {
-      body: {
-        password: { type: "password", optional: true },
-      },
     },
     async ({ body: { password } }, me) => {
       if (me.resetTokenUsed) {
@@ -163,36 +188,21 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         loginToken: me.content.token,
         apiToken,
       };
-    },
-    {
-      title: "Update a user",
-      description: "Currently, only updating the password is supported.",
-      returns: [
-        {
-          status: 200,
-          type: "object",
-          keys: {
-            id: { type: "id" },
-            loginToken: { type: "base64" },
-            apiToken: { type: "string" },
-          },
-        },
-        { status: 400, error: "Nothing to update" },
-        { status: 400, error: "Password required" },
-        {
-          status: 400,
-          error: "The new password does not meet all requirements",
-        },
-        { status: 401, error: "Unauthorized" },
-      ],
     }
   );
 
-  const resetPassword = preparator(
+  const resetPassword = prepare(
     {
-      params: {
-        email: { type: "email" },
+      title: "Reset the password",
+      receives: {
+        params: makeSchema({
+          email: { type: "email" },
+        }),
       },
+      returns: [
+        httpErrorSchema(404, "User not found"),
+        makeSchema({ value: "ok" }),
+      ],
     },
     async ({ dbs, params: { email } }) => {
       const [, User] = useUser(dbs);
@@ -201,7 +211,10 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       try {
         await me.load({ email: email.toLowerCase(), deleted: false });
       } catch (e) {
-        return exceptionTo(NotFound, e, HttpError.notFound("User"));
+        if (e instanceof NotFound) {
+          return HttpError.notFound("User");
+        }
+        throw e;
       }
       await me.genResetToken();
 
@@ -211,13 +224,6 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       await mail.sendMail(email, body, title);
 
       return "ok";
-    },
-    {
-      title: "Reset the password",
-      returns: [
-        { status: 404, error: "User not found" },
-        { status: 200, value: "ok" },
-      ],
     }
   );
 

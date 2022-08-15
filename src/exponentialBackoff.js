@@ -1,4 +1,4 @@
-const { HttpError } = require("@apparts/error");
+const { HttpError } = require("@apparts/prep");
 
 const checkAuthPwExponential = async (
   dbs,

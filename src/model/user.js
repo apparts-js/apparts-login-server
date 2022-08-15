@@ -1,6 +1,4 @@
-"use strict";
-
-const { HttpError } = require("@apparts/error");
+const { HttpError } = require("@apparts/prep");
 const { useModel, makeModel } = require("@apparts/model");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -65,7 +63,7 @@ module.exports = (types, collectionName = "users") => {
         !token ||
         (token !== this.content.token && token !== this.content.tokenforreset)
       ) {
-        throw new HttpError(401);
+        throw new HttpError(401, "Unauthorized");
       }
       if (this.content.tokenforreset) {
         this.content.tokenforreset = null;
@@ -87,7 +85,7 @@ module.exports = (types, collectionName = "users") => {
       if (matches) {
         return this;
       } else {
-        throw new HttpError(401);
+        throw new HttpError(401, "Unauthorized");
       }
     }
 
