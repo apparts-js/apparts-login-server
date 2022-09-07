@@ -32,14 +32,14 @@
   "dependencies": {
     "@apparts/config": "^1.2.0",
     "@apparts/model": "^4.6.3",
+    "@apparts/prep": "^1.0.4",
     "@apparts/types": "^7.2.0",
-    "@apparts/prep": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^8.5.1"
   },
   "devDependencies": {
-    "@apparts/db": "^3.5.1",
     "@apparts/backend-test": "^3.0.0",
+    "@apparts/db": "^3.5.1",
     "eslint": "^8.8.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-jest": "^26.1.0",

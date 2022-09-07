@@ -212,7 +212,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         await me.load({ email: email.toLowerCase(), deleted: false });
       } catch (e) {
         if (e instanceof NotFound) {
-          return HttpError.notFound("User");
+          return new HttpError(404, "User not found");
         }
         throw e;
       }
