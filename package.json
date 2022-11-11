@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:phuhl/apparts-login-server.git"
+    "url": "git@github.com:apparts-js/apparts-login-server.git"
   },
   "keywords": [
     "apparts",
