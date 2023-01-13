@@ -31,7 +31,7 @@ const checkAuthPwExponential = async (
 
   if (failedLogInAttempts >= 5) {
     const nextAllowedTry =
-      lastLogInAttempt + Math.pow(2, 5 - failedLogInAttempts) * 1000 * 60;
+      lastLogInAttempt + Math.pow(2, failedLogInAttempts - 5) * 1000 * 60;
     if (Date.now() <= nextAllowedTry) {
       throw new HttpError(
         425,
