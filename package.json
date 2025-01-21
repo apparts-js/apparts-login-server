@@ -2,13 +2,15 @@
   "name": "@apparts/login-server",
   "version": "3.0.1",
   "description": "Login and Signup for Web, Apps, Server",
-  "main": "src/index.js",
+  "module": "dist/index.esm.js",
+  "main": "dist/index.cjs.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test:one": "jest",
     "test": "jest --watch --detectOpenHandles",
     "testCoverage": "jest --coverage",
     "prepublishOnly": "npm run clean && npm ci  && npm run ci && npm run build",
-    "build": "npm run clean",
+    "build": "npm run clean && node build.js && tsc --emitDeclarationOnly --outDir dist",
     "ci": "npm ci && npm run ci:prettier && npm run ci:eslint && npm run ci:test",
     "ci:prettier": "CI=true prettier --check .",
     "ci:test": "CI=true npm run test:one",
@@ -35,17 +37,23 @@
     "@apparts/prep": "^1.0.4",
     "@apparts/types": "^7.2.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^8.5.1"
+    "jsonwebtoken": "^9.0.2"
   },
+  "peerDependencies": {},
   "devDependencies": {
     "@apparts/backend-test": "^3.0.0",
     "@apparts/db": "^3.5.1",
-    "eslint": "^8.8.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-jest": "^26.1.0",
-    "jest": "^27.5.0",
-    "prettier": "^2.5.1",
-    "supertest": "^6.2.2"
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.7",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "esbuild": "^0.24.2",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-jest": "^28.11.0",
+    "prettier": "^3.4.2",
+    "supertest": "^6.2.2",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.3"
   },
   "optionalPeerDependencies": {
     "apparts-node-app": "git+ssh://git@ph-uhl.com:Apparts/apparts-node-app#semver:^1.0.0"
