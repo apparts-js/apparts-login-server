@@ -19,7 +19,7 @@ const loginSchema = types.obj({
 });
 export type LoginType = types.InferType<typeof loginSchema>;
 
-export const createUseLogins = (types, collectionName = "logins") => {
+export const createLoginsModel = (types, collectionName = "logins") => {
   const Logins = useModel({
     typeSchema: loginSchema,
     collection: collectionName,
@@ -28,4 +28,4 @@ export const createUseLogins = (types, collectionName = "logins") => {
   return Logins;
 };
 
-export type UseLoginsType = ReturnType<typeof createUseLogins>;
+export type UseLoginsType = ReturnType<typeof createLoginsModel>;

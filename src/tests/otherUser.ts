@@ -1,11 +1,11 @@
 import {
   createUserModel,
-  createUseLogins,
+  createLoginsModel,
   PasswordNotValidError,
   checkAuthPwExponential,
 } from "../";
 
-const Login = createUseLogins({});
+const Login = createLoginsModel({});
 
 const Users = createUserModel({}, "users");
 
