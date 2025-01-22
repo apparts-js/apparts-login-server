@@ -23,7 +23,9 @@ const makeFakeSchema = (type) =>
 
 export const useUserRoutes = (
   User: UseUserType,
-  mail,
+  mail: {
+    sendMail: (email: string, body: string, title: string) => Promise<void>;
+  },
   settings = UserSettings,
 ) => {
   const prepauthPW = prepauthPW_(User);
@@ -69,7 +71,7 @@ export const useUserRoutes = (
       title: "Get a user",
       receives: {},
       returns: [
-        makeFakeSchema({ type: "object", values: { type: "/" } }),
+        types.objValues(types.any()),
         httpErrorSchema(401, "Unauthorized"),
       ],
       hasAccess: async () => true,
@@ -84,20 +86,17 @@ export const useUserRoutes = (
       title: "Login",
       receives: {},
       returns: [
-        makeFakeSchema({
-          type: "object",
-          keys: {
-            id: { type: "string" },
-            loginToken: { type: "base64" },
-            apiToken: { type: "string" },
-          },
+        types.obj({
+          id: types.string(),
+          loginToken: types.base64(),
+          apiToken: types.string(),
         }),
         httpErrorSchema(401, "Unauthorized"),
         httpErrorSchema(425, "Login failed, too often."),
       ],
       hasAccess: async () => true,
     },
-    async (req, me) => {
+    async (_, me) => {
       const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
@@ -119,7 +118,7 @@ export const useUserRoutes = (
       ],
       hasAccess: async () => true,
     },
-    async (req, me) => {
+    async (_, me) => {
       const apiToken = await me.getAPIToken();
       return apiToken;
     },
@@ -148,13 +147,10 @@ export const useUserRoutes = (
         }),
       },
       returns: [
-        makeFakeSchema({
-          type: "object",
-          keys: {
-            id: { type: "string" },
-            loginToken: { type: "base64" },
-            apiToken: { type: "string" },
-          },
+        types.obj({
+          id: types.string(),
+          loginToken: types.base64(),
+          apiToken: types.string(),
         }),
         httpErrorSchema(400, "Nothing to update"),
         httpErrorSchema(400, "Password required"),
@@ -206,8 +202,8 @@ export const useUserRoutes = (
     {
       title: "Reset the password",
       receives: {
-        params: makeFakeSchema({
-          email: { type: "email" },
+        params: types.obj({
+          email: types.email(),
         }),
       },
       returns: [httpErrorSchema(404, "User not found"), types.value("ok")],

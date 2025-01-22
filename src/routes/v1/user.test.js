@@ -1,11 +1,11 @@
 const request = require("supertest");
-const { createUseUser } = require("../../model/user");
+const { createUserModel } = require("../../model/user");
 const { makeModel } = require("@apparts/model");
 const mailObj = {};
 const { addRoutes } = require("../");
 const { useUserRoutes } = require("./user");
 
-const User = createUseUser();
+const User = createUserModel();
 
 const useOtherUser = require("../../tests/otherUser");
 

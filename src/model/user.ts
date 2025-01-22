@@ -39,7 +39,7 @@ const userSchemaObj = {
 const userSchema = types.obj(userSchemaObj);
 export type UserType = types.InferType<typeof userSchema>;
 
-export const createUseUser = <T>(
+export const createUserModel = <T>(
   inputSchema: Record<string, types.BaseType<any, any>>,
   collectionName = "users",
 ) => {
@@ -113,7 +113,7 @@ export const createUseUser = <T>(
       }
     }
 
-    checkAuthPw(password: string) {
+    async checkAuthPw(password: string) {
       return this._checkPw(password);
     }
 
@@ -182,4 +182,4 @@ export const createUseUser = <T>(
   return Users;
 };
 
-export type UseUserType = ReturnType<typeof createUseUser>;
+export type UseUserType = ReturnType<typeof createUserModel>;

@@ -1,17 +1,16 @@
-const { makeModel } = require("@apparts/model");
-const {
-  createUseUser,
+import {
+  createUserModel,
   createUseLogins,
   PasswordNotValidError,
   checkAuthPwExponential,
-} = require("../");
+} from "../";
 
-const Login = createUseLogins();
+const Login = createUseLogins({});
 
-const Users = createUseUser({}, "users");
+const Users = createUserModel({}, "users");
 
 class OtherUsers extends Users {
-  async setPw(password) {
+  async setPw(password: string) {
     if (password.length < 10) {
       throw new PasswordNotValidError("Password must be 10+ characters");
     }
@@ -19,14 +18,17 @@ class OtherUsers extends Users {
     return this;
   }
 
-  checkAuthPw(password) {
-    return checkAuthPwExponential(
+  async checkAuthPw(password: string) {
+    await checkAuthPwExponential(
       this._dbs,
       Login,
       this.content.id,
       password,
-      (password) => super.checkAuthPw(password),
+      async (password) => {
+        await super.checkAuthPw(password);
+      },
     );
+    return this;
   }
 }
 

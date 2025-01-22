@@ -1,6 +1,6 @@
 import { useUserRoutes } from "./v1/user";
 import { Application } from "express";
-import { createUseUser } from "../model/user";
+import { createUserModel } from "../model/user";
 
 export const addRoutesForUpgrade = (
   app: Application,
@@ -18,7 +18,7 @@ export const addRoutesForUpgrade = (
 
 export const addRoutes = (
   app: Application,
-  useUser: ReturnType<typeof createUseUser>,
+  useUser: ReturnType<typeof createUserModel>,
   mail: {
     sendMail: (email: string, body: string, title: string) => Promise<void>;
   },
