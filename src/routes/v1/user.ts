@@ -19,6 +19,7 @@ const makeFakeSchema = (type) =>
     getModelType() {
       return type;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as types.Obj<any, any>;
 
 export const useUserRoutes = (
@@ -42,7 +43,7 @@ export const useUserRoutes = (
       returns: [types.value("ok"), httpErrorSchema(413, "User exists")],
       hasAccess: async () => true,
     },
-    // @ts-ignore
+    // @ts-expect-error 2339
     async ({ ctx: { dbs }, body: { email, ...extra } }) => {
       const me = new User(dbs, [
         {
@@ -100,7 +101,7 @@ export const useUserRoutes = (
       const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
-        loginToken: me.content.token,
+        loginToken: me.content.token ?? "",
         apiToken,
       };
     },
@@ -187,12 +188,12 @@ export const useUserRoutes = (
         await me.genToken();
       }
 
-      me.content.tokenforreset = null;
+      me.content.tokenforreset = undefined;
       await me.update();
       const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
-        loginToken: me.content.token,
+        loginToken: me.content.token!,
         apiToken,
       };
     },
@@ -209,7 +210,7 @@ export const useUserRoutes = (
       returns: [httpErrorSchema(404, "User not found"), types.value("ok")],
       hasAccess: async () => true,
     },
-    // @ts-ignore
+    // @ts-expect-error 2339
     async ({ ctx: { dbs }, params: { email } }) => {
       const me = new User(dbs);
       try {

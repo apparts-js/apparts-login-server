@@ -1,6 +1,5 @@
 const request = require("supertest");
 const { createUserModel } = require("../../model/user");
-const { makeModel } = require("@apparts/model");
 const mailObj = {};
 const { addRoutes } = require("../");
 const { useUserRoutes } = require("./user");
@@ -328,7 +327,7 @@ describe("signup", () => {
     expect(user.content.token).toBeTruthy();
     expect(user.content.tokenforreset).toBeTruthy();
 
-    expect(mailObj.sendMail.mock.calls.length).toBe(1);
+    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
@@ -366,14 +365,14 @@ describe("signup", () => {
     expect(user.content.createdon).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
     expect(user.content.token).toBeTruthy();
     expect(user.content.tokenforreset).toBeTruthy();
-    expect(mockFn.mock.calls.length).toBe(1);
+    expect(mockFn.mock.calls).toHaveLength(1);
     expect(mockFn.mock.calls[0][0]).toMatchObject({
       a: 3,
       b: false,
       c: [4, 6],
     });
 
-    expect(mailObj.sendMail.mock.calls.length).toBe(1);
+    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser2@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
@@ -444,7 +443,7 @@ describe("reset password", () => {
     expect(user.content.token).toBe(userOld.content.token);
     expect(user.content.tokenforreset).toBeTruthy();
 
-    expect(mailObj.sendMail.mock.calls.length).toBe(1);
+    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("tester@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(

@@ -24,7 +24,7 @@ type FunType<
   ReturnTypes extends ReturnsArray,
 > = (
   req: ActualRequestType<BodyType, ParamsType, QueryType>,
-  user: any,
+  user: InstanceType<UseUserType>,
   res: ResponseType,
 ) => Promise<OneOfReturnTypes<ReturnTypes>>;
 

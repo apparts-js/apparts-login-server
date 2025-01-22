@@ -1,11 +1,10 @@
-import { HttpError } from "@apparts/prep";
+import { get as getConfig } from "@apparts/config";
 import { useModel } from "@apparts/model";
+import { HttpError } from "@apparts/prep";
+import * as types from "@apparts/types";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { get as getConfig } from "@apparts/config";
 import JWT from "jsonwebtoken";
-import * as types from "@apparts/types";
-import { Type } from "@apparts/types";
 import { v7 as uuid } from "uuid";
 
 const UserSettings = getConfig("login-config");
@@ -36,10 +35,12 @@ const userSchemaObj = {
     .public(),
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const userSchema = types.obj(userSchemaObj);
 export type UserType = types.InferType<typeof userSchema>;
 
 export const createUserModel = <T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inputSchema: Record<string, types.BaseType<any, any>>,
   collectionName = "users",
 ) => {
@@ -54,6 +55,7 @@ export const createUserModel = <T>(
   class Users extends UsersBase {
     resetTokenUsed = false;
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async setExtra(extra: T) {}
 
     getWelcomeMail() {
