@@ -22,7 +22,7 @@ const getDBPool = (next) => {
 
 const injectDB = (req, res, next) => {
   getDBPool((dbs) => {
-    req.dbs = dbs;
+    req.ctx = { dbs };
     next();
   });
 };

@@ -1,34 +1,54 @@
-const { HttpError } = require("@apparts/prep");
-const { useModel, makeModel } = require("@apparts/model");
-const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
-const UserSettings = require("@apparts/config").get("login-config");
-const JWT = require("jsonwebtoken");
+import { HttpError } from "@apparts/prep";
+import { useModel, makeModel } from "@apparts/model";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { get as getConfig } from "@apparts/config";
+import JWT from "jsonwebtoken";
+import * as types from "@apparts/types";
+import { Type } from "@apparts/types";
+import { v7 as uuid } from "uuid";
+
+const UserSettings = getConfig("login-config");
+
 const {
   apiToken: { webtokenkey, expireTime },
   welcomeMail,
   resetMail,
   resetUrl,
 } = UserSettings;
-module.exports = (types, collectionName = "users") => {
-  const [Users, _User, NoUser] = useModel(
+
+const userSchema = types.obj({
+  id: types
+    .string()
+    // .semantic("id")
+    .public()
+    .default(() => uuid())
+    .key(),
+  email: types.email().public(),
+  token: types.base64().optional(),
+  tokenforreset: types.base64().optional(),
+  hash: types.any().optional(),
+  deleted: types.boolean().default(false),
+  createdon: types
+    .int()
+    .semantic("time")
+    .default(() => Date.now())
+    .public(),
+});
+export type UserType = types.InferType<typeof userSchema>;
+
+export const createUseUser = (inputTypes: Type, collectionName = "users") => {
+  const [Users, _User, NoUser] = useModel<UserType, never>(
     {
-      id: { type: "id", public: true, auto: true, key: true },
-      email: { type: "email", unique: true, public: true },
-      token: { type: "base64", optional: true },
-      tokenforreset: { type: "base64", optional: true },
-      hash: { type: "/", optional: true },
-      deleted: { type: "bool", default: false },
-      createdon: { type: "time", default: () => Date.now(), public: true },
-      ...types,
+      ...userSchema.getModelType(),
+      ...inputTypes,
     },
-    collectionName
+    collectionName,
   );
 
   class User extends _User {
-    constructor(dbs, content) {
-      super(dbs, content);
-    }
+    // content: UserType;
+    resetTokenUsed = false;
 
     async setExtra() {}
 
@@ -39,8 +59,8 @@ module.exports = (types, collectionName = "users") => {
           /##URL##/g,
           resetUrl +
             `?token=${encodeURIComponent(
-              this.content.tokenforreset
-            )}&email=${encodeURIComponent(this.content.email)}&welcome=true`
+              this.content.tokenforreset!,
+            )}&email=${encodeURIComponent(this.content.email)}&welcome=true`,
         ),
       };
     }
@@ -52,8 +72,8 @@ module.exports = (types, collectionName = "users") => {
           /##URL##/g,
           resetUrl +
             `?token=${encodeURIComponent(
-              this.content.tokenforreset
-            )}&email=${encodeURIComponent(this.content.email)}`
+              this.content.tokenforreset!,
+            )}&email=${encodeURIComponent(this.content.email)}`,
         ),
       };
     }
@@ -66,8 +86,9 @@ module.exports = (types, collectionName = "users") => {
         throw new HttpError(401, "Unauthorized");
       }
       if (this.content.tokenforreset) {
-        this.content.tokenforreset = null;
+        this.content.tokenforreset = undefined;
         this.resetTokenUsed = true;
+        // @ts-ignore
         await this.update();
       }
       return this;
@@ -128,6 +149,7 @@ module.exports = (types, collectionName = "users") => {
     async getExtraAPITokenContent() {}
 
     async getAPIToken(extraDynamicContent = {}, extraJWTOptions = {}) {
+      // @ts-ignore
       if (!this._checkTypes([this.content])) {
         throw new Error("User: getAPIToken called on a non-valid user");
       }
@@ -136,6 +158,7 @@ module.exports = (types, collectionName = "users") => {
         id: this.content.id,
         action: "login",
         email: this.content.email,
+        // @ts-ignore
         ...extra,
         ...extraDynamicContent,
       };
@@ -146,9 +169,10 @@ module.exports = (types, collectionName = "users") => {
     }
 
     async deleteMe() {
-      this.content.token = null;
-      this.content.tokenforreset = null;
+      this.content.token = undefined;
+      this.content.tokenforreset = undefined;
       this.content.deleted = true;
+      // @ts-ignore
       this.update();
     }
   }

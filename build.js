@@ -8,7 +8,10 @@ const shared = {
   bundle: true,
   platform: "node",
   entryPoints: [entryFile],
-  external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
+  external: [
+    ...Object.keys(dependencies),
+    ...Object.keys(peerDependencies ?? {}),
+  ],
   logLevel: "info",
   sourcemap: true,
   target: ["esnext", "node22.13.1"],

@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "test:one": "jest",
-    "test": "jest --watch --detectOpenHandles",
+    "test": "npx jest --watch --detectOpenHandles",
     "testCoverage": "jest --coverage",
     "prepublishOnly": "npm run clean && npm ci  && npm run ci && npm run build",
     "build": "npm run clean && node build.js && tsc --emitDeclarationOnly --outDir dist",
@@ -37,13 +37,17 @@
     "@apparts/prep": "^1.0.4",
     "@apparts/types": "^7.2.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.0.5"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@apparts/backend-test": "^3.0.0",
     "@apparts/db": "^3.5.1",
+    "@swc/jest": "^0.2.37",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.7",
     "@typescript-eslint/eslint-plugin": "^8.21.0",
     "esbuild": "^0.24.2",

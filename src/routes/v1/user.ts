@@ -1,39 +1,42 @@
-const { prepare, HttpError, httpErrorSchema } = require("@apparts/prep");
-const {
-  prepauthPW: prepauthPW_,
-  prepauthToken: prepauthToken_,
-} = require("../../prepauth");
-const { NotFound, DoesExist } = require("@apparts/model");
-const UserSettings = require("@apparts/config").get("login-config");
-const { PasswordNotValidError } = require("../../errors");
+import { prepare, HttpError, httpErrorSchema } from "@apparts/prep";
+import {
+  prepauthPW as prepauthPW_,
+  prepauthToken as prepauthToken_,
+} from "../../prepauth";
+import { NotFound, DoesExist } from "@apparts/model";
+import { get as getConfig } from "@apparts/config";
+import { PasswordNotValidError } from "../../errors";
+import * as types from "@apparts/types";
+import { ActualRequestType } from "../../types";
 
-const makeSchema = (type) => ({
-  getType() {
-    return type;
-  },
-  getModelType() {
-    return type;
-  },
-});
+const UserSettings = getConfig("login-config");
 
-const useUserRoutes = (useUser, mail, settings = UserSettings) => {
+const makeFakeSchema = (type) =>
+  ({
+    getType() {
+      return type;
+    },
+    getModelType() {
+      return type;
+    },
+  }) as types.Obj<any, true>;
+
+export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
   const prepauthPW = prepauthPW_(useUser()[1]);
   const prepauthToken = prepauthToken_(useUser()[1]);
   const addUser = prepare(
     {
       title: "Add a user",
       receives: {
-        body: makeSchema({
+        body: makeFakeSchema({
           email: { type: "email" },
           ...settings.extraTypes,
         }),
       },
-      returns: [
-        makeSchema({ value: "ok" }),
-        httpErrorSchema(413, "User exists"),
-      ],
+      returns: [types.value("ok"), httpErrorSchema(413, "User exists")],
     },
-    async ({ dbs, body: { email, ...extra } }) => {
+    // @ts-ignore
+    async ({ ctx: { dbs }, body: { email, ...extra } }) => {
       const [, User] = useUser(dbs);
       const me = new User({
         email: email.toLowerCase(),
@@ -52,7 +55,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       const { title, body } = me.getWelcomeMail();
       await mail.sendMail(email, body, title);
       return "ok";
-    }
+    },
   );
 
   const getUser = prepauthToken(
@@ -60,13 +63,13 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Get a user",
       receives: {},
       returns: [
-        makeSchema({ type: "object", values: { type: "/" } }),
+        makeFakeSchema({ type: "object", values: { type: "/" } }),
         httpErrorSchema(401, "Unauthorized"),
       ],
     },
     async (_, me) => {
       return me.getPublic();
-    }
+    },
   );
 
   const getToken = prepauthPW(
@@ -74,10 +77,10 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Login",
       receives: {},
       returns: [
-        makeSchema({
+        makeFakeSchema({
           type: "object",
           keys: {
-            id: { type: "id" },
+            id: { type: "string" },
             loginToken: { type: "base64" },
             apiToken: { type: "string" },
           },
@@ -93,7 +96,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         loginToken: me.content.token,
         apiToken,
       };
-    }
+    },
   );
 
   const getAPIToken = prepauthToken(
@@ -101,7 +104,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Renew API Token",
       receives: {},
       returns: [
-        makeSchema({
+        makeFakeSchema({
           type: "string",
         }),
         httpErrorSchema(401, "Unauthorized"),
@@ -110,22 +113,19 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
     async (req, me) => {
       const apiToken = await me.getAPIToken();
       return apiToken;
-    }
+    },
   );
 
   const deleteUser = prepauthPW(
     {
       title: "Delete a user",
       receives: {},
-      returns: [
-        makeSchema({ value: "ok" }),
-        httpErrorSchema(401, "Unauthorized"),
-      ],
+      returns: [types.value("ok"), httpErrorSchema(401, "Unauthorized")],
     },
     async (_, me) => {
       await me.deleteMe();
-      return "ok";
-    }
+      return "ok" as const;
+    },
   );
 
   const updateUser = prepauthToken(
@@ -133,15 +133,15 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Update a user",
       description: "Currently, only updating the password is supported.",
       receives: {
-        body: makeSchema({
+        body: makeFakeSchema({
           password: { type: "password", optional: true },
         }),
       },
       returns: [
-        makeSchema({
+        makeFakeSchema({
           type: "object",
           keys: {
-            id: { type: "id" },
+            id: { type: "string" },
             loginToken: { type: "base64" },
             apiToken: { type: "string" },
           },
@@ -172,7 +172,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
             return new HttpError(
               400,
               "The new password does not meet all requirements",
-              e.message
+              e.message,
             );
           }
           throw e;
@@ -188,23 +188,21 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         loginToken: me.content.token,
         apiToken,
       };
-    }
+    },
   );
 
   const resetPassword = prepare(
     {
       title: "Reset the password",
       receives: {
-        params: makeSchema({
+        params: makeFakeSchema({
           email: { type: "email" },
         }),
       },
-      returns: [
-        httpErrorSchema(404, "User not found"),
-        makeSchema({ value: "ok" }),
-      ],
+      returns: [httpErrorSchema(404, "User not found"), types.value("ok")],
     },
-    async ({ dbs, params: { email } }) => {
+    // @ts-ignore
+    async ({ ctx: { dbs }, params: { email } }) => {
       const [, User] = useUser(dbs);
 
       const me = new User();
@@ -224,7 +222,7 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       await mail.sendMail(email, body, title);
 
       return "ok";
-    }
+    },
   );
 
   return {
@@ -237,5 +235,3 @@ const useUserRoutes = (useUser, mail, settings = UserSettings) => {
     resetPassword,
   };
 };
-
-module.exports = useUserRoutes;

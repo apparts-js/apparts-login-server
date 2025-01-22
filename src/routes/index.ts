@@ -1,6 +1,12 @@
-const useUserRoutes = require("./v1/user");
+import { useUserRoutes } from "./v1/user";
+import { Application } from "express";
+import { createUseUser } from "../model/user";
 
-const addRoutesForUpgrade = (app, f, apiVersion = 1) => {
+export const addRoutesForUpgrade = (
+  app: Application,
+  f: Parameters<typeof app.get>[1],
+  apiVersion = 1,
+) => {
   app.post("/v/" + apiVersion + "/user", f);
   app.get("/v/" + apiVersion + "/user/login", f);
   app.get("/v/" + apiVersion + "/user/apiToken", f);
@@ -10,7 +16,14 @@ const addRoutesForUpgrade = (app, f, apiVersion = 1) => {
   app.post("/v/" + apiVersion + "/user/:email/reset", f);
 };
 
-const addRoutes = (app, useUser, mail, apiVersion = 1) => {
+export const addRoutes = (
+  app: Application,
+  useUser: ReturnType<typeof createUseUser>,
+  mail: {
+    sendMail: (email: string, body: string, title: string) => Promise<void>;
+  },
+  apiVersion = 1,
+) => {
   const {
     addUser,
     getUser,
@@ -29,6 +42,3 @@ const addRoutes = (app, useUser, mail, apiVersion = 1) => {
   app.put("/v/" + apiVersion + "/user", updateUser);
   app.post("/v/" + apiVersion + "/user/:email/reset", resetPassword);
 };
-
-module.exports = addRoutes;
-module.exports.upgrade = addRoutesForUpgrade;

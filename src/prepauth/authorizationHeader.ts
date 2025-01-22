@@ -1,7 +1,9 @@
-const basicAuth = (req) => {
+import { Request } from "express";
+
+export const basicAuth = (req: Request) => {
   let m = /^Basic (.*)$/.exec(req.get("Authorization") || "");
   if (m) {
-    m = /([^:]*):(.*)/.exec(new Buffer(m[1], "base64").toString("ascii"));
+    m = /([^:]*):(.*)/.exec(Buffer.from(m[1], "base64").toString("ascii"));
     if (m) {
       const email = m[1],
         token = m[2];
@@ -10,5 +12,3 @@ const basicAuth = (req) => {
   }
   return [];
 };
-
-module.exports = { basicAuth };

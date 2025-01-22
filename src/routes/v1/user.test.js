@@ -1,9 +1,9 @@
 const request = require("supertest");
-const _useUser = require("../../model/user.js");
+const { createUseUser: _useUser } = require("../../model/user");
 const { makeModel } = require("@apparts/model");
 const mailObj = {};
-const addRoutes = require("../");
-const useUserRoutes = require("./user");
+const { addRoutes } = require("../");
+const { useUserRoutes } = require("./user");
 
 const { useUser } = _useUser();
 
@@ -12,9 +12,13 @@ const { useOtherUser } = require("../../tests/otherUser");
 const { checkType, allChecked, app, url, error, getPool } =
   require("@apparts/backend-test")({
     testName: "user",
-    apiContainer: require("./user")(useUser, mailObj),
+    apiContainer: useUserRoutes(useUser, mailObj),
     ...require("./tests/config.js"),
   });
+app.use((req, res, next) => {
+  req.ctx = { dbs: req.dbs };
+  next();
+});
 
 addRoutes(app, useUser, mailObj);
 
@@ -36,7 +40,7 @@ const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
       ...extra,
     },
     webtokenkey,
-    { expiresIn }
+    { expiresIn },
   );
 
 let dateNowAll;
@@ -132,7 +136,7 @@ describe("getToken", () => {
     newUsers[1] = User1;
     const { getToken } = useUserRoutes(
       makeModel("User", newUsers).useUser,
-      mailObj
+      mailObj,
     );
     app.get("/v/1/user1/login", getToken);
 
@@ -156,7 +160,7 @@ describe("getToken", () => {
       responses.push(
         await request(app)
           .get(url("other/user/login"))
-          .auth("tester@test.de", "b12345678")
+          .auth("tester@test.de", "b12345678"),
       );
     }
 
@@ -164,7 +168,7 @@ describe("getToken", () => {
       await request(app)
         .get(url("other/user/login"))
         // now try correct login, should fail too
-        .auth("tester@test.de", "a12345678")
+        .auth("tester@test.de", "a12345678"),
     );
 
     expect(responses).toMatchObject([
@@ -258,7 +262,7 @@ describe("getAPIToken", () => {
       jwt("tester@test.de", user.content.id, {
         tada: 4,
         venueId: "2",
-      })
+      }),
     );
   });
   test("Extra dynamic options of token", async () => {
@@ -268,7 +272,7 @@ describe("getAPIToken", () => {
       {},
       {
         expiresIn: "2 days",
-      }
+      },
     );
     expect(response).toBe(
       jwt(
@@ -278,8 +282,8 @@ describe("getAPIToken", () => {
           tada: 4,
         },
         "login",
-        "2 days"
-      )
+        "2 days",
+      ),
     );
   });
   test("Call getAPIToken on invalid user", async () => {
@@ -303,7 +307,7 @@ describe("signup", () => {
       email: "tester@test",
     });
     expect(response.body).toMatchObject(
-      error("Fieldmissmatch", 'expected email for field "email" in body')
+      error("Fieldmissmatch", 'expected email for field "email" in body'),
     );
 
     expect(response.statusCode).toBe(400);
@@ -326,8 +330,8 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset
-      )}&email=newuser%40test.de&welcome=true`
+        user.content.tokenforreset,
+      )}&email=newuser%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
   });
@@ -345,7 +349,7 @@ describe("signup", () => {
     newUsers[1] = User1;
     const { addUser } = useUserRoutes(
       makeModel("User", newUsers).useUser,
-      mailObj
+      mailObj,
     );
     app.post("/v/1/user2", addUser);
 
@@ -376,8 +380,8 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser2@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset
-      )}&email=newuser2%40test.de&welcome=true`
+        user.content.tokenforreset,
+      )}&email=newuser2%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
   });
@@ -425,7 +429,7 @@ describe("get user", () => {
 describe("reset password", () => {
   test("User does not exist", async () => {
     const response = await request(app).post(
-      url("user/doesnotexist@test.de/reset")
+      url("user/doesnotexist@test.de/reset"),
     );
     expect(response.body).toMatchObject(error("User not found"));
     expect(response.statusCode).toBe(404);
@@ -447,8 +451,8 @@ describe("reset password", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("tester@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset
-      )}&email=tester%40test.de`
+        user.content.tokenforreset,
+      )}&email=tester%40test.de`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Passwort vergessen?");
   });

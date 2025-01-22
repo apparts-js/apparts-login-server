@@ -1,11 +1,12 @@
-const { HttpError } = require("@apparts/prep");
+import { HttpError } from "@apparts/prep";
+import { GenericDBS } from "@apparts/db";
 
-const checkAuthPwExponential = async (
-  dbs,
+export const checkAuthPwExponential = async (
+  dbs: GenericDBS,
   useLogin,
-  userId,
-  password,
-  checkAuthPw
+  userId: string,
+  password: string,
+  checkAuthPw: (pw: string) => Promise<void>,
 ) => {
   const [Logins, Login] = useLogin(dbs);
   const thisLogin = await new Login({
@@ -16,14 +17,14 @@ const checkAuthPwExponential = async (
     { key: "created", dir: "DESC" },
   ]);
   const lastLogins = lastLoginsDb.contents.filter(
-    ({ id }) => id !== thisLogin.content.id
+    ({ id }) => id !== thisLogin.content.id,
   );
   const latestSuccessfulLoginIdx = lastLogins.findIndex(
-    ({ success }) => success === true
+    ({ success }) => success === true,
   );
   const lastFailedLogins = lastLogins.slice(
     0,
-    latestSuccessfulLoginIdx === -1 ? undefined : latestSuccessfulLoginIdx
+    latestSuccessfulLoginIdx === -1 ? undefined : latestSuccessfulLoginIdx,
   );
 
   const failedLogInAttempts = lastFailedLogins.length,
@@ -36,7 +37,7 @@ const checkAuthPwExponential = async (
       throw new HttpError(
         425,
         "Login failed, too often.",
-        "Next allowed login attempt at: " + new Date(nextAllowedTry)
+        "Next allowed login attempt at: " + new Date(nextAllowedTry),
       );
     }
   }
@@ -51,5 +52,3 @@ const checkAuthPwExponential = async (
     throw e;
   }
 };
-
-module.exports = { checkAuthPwExponential };

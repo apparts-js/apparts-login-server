@@ -1,6 +1,6 @@
 
 CREATE TABLE users (
-       id SERIAL PRIMARY KEY,
+       id UUID PRIMARY KEY,
        email VARCHAR(128) UNIQUE NOT NULL,
        token VARCHAR(64),
        tokenForReset VARCHAR(64),
@@ -11,8 +11,8 @@ CREATE TABLE users (
 
 
 CREATE TABLE logins (
-       id SERIAL PRIMARY KEY,
+       id UUID PRIMARY KEY,
        created BIGINT NOT NULL,
-       "userId" INT NOT NULL,
+       "userId" UUID NOT NULL,
        success BOOLEAN
 );
