@@ -242,7 +242,15 @@ describe("getAPIToken", () => {
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Extra dynamic infos in token", async () => {
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    class User1 extends User {
+      getExtraAPITokenContent() {
+        return { tada: 4 };
+      }
+    }
+
+    const user = await new User1(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     const response = await user.getAPIToken({
       venueId: "2",
     });
@@ -254,7 +262,14 @@ describe("getAPIToken", () => {
     );
   });
   test("Extra dynamic options of token", async () => {
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    class User1 extends User {
+      getExtraAPITokenContent() {
+        return { tada: 4 };
+      }
+    }
+    const user = await new User1(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     const response = await user.getAPIToken(
       {},
       {

@@ -17,7 +17,7 @@ const {
   resetUrl,
 } = UserSettings;
 
-const userSchema = types.obj({
+const userSchemaObj = {
   id: types
     .string()
     // .semantic("id")
@@ -34,20 +34,27 @@ const userSchema = types.obj({
     .semantic("time")
     .default(() => Date.now())
     .public(),
-});
+};
+
+const userSchema = types.obj(userSchemaObj);
 export type UserType = types.InferType<typeof userSchema>;
 
-export const createUseUser = (inputTypes: Type, collectionName = "users") => {
+export const createUseUser = <T>(
+  inputSchema: Record<string, types.BaseType<any, any>>,
+  collectionName = "users",
+) => {
   const UsersBase = useModel({
-    typeSchema: userSchema,
+    typeSchema: types.obj({
+      ...userSchemaObj,
+      ...inputSchema,
+    }),
     collection: collectionName,
   });
 
   class Users extends UsersBase {
-    // content: UserType;
     resetTokenUsed = false;
 
-    async setExtra() {}
+    async setExtra(extra: T) {}
 
     getWelcomeMail() {
       return {
@@ -142,7 +149,9 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
       this.content.token = oldToken;
     }
 
-    async getExtraAPITokenContent() {}
+    async getExtraAPITokenContent() {
+      return {};
+    }
 
     async getAPIToken(extraDynamicContent = {}, extraJWTOptions = {}) {
       if (!this._checkTypes([this.content])) {
@@ -153,7 +162,6 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
         id: this.content.id,
         action: "login",
         email: this.content.email,
-        // @ts-ignore
         ...extra,
         ...extraDynamicContent,
       };
