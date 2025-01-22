@@ -1,18 +1,18 @@
 const request = require("supertest");
-const { createUseUser: _useUser } = require("../../model/user");
+const { createUseUser } = require("../../model/user");
 const { makeModel } = require("@apparts/model");
 const mailObj = {};
 const { addRoutes } = require("../");
 const { useUserRoutes } = require("./user");
 
-const { useUser } = _useUser();
+const User = createUseUser();
 
-const { useOtherUser } = require("../../tests/otherUser");
+const useOtherUser = require("../../tests/otherUser");
 
 const { checkType, allChecked, app, url, error, getPool } =
   require("@apparts/backend-test")({
     testName: "user",
-    apiContainer: useUserRoutes(useUser, mailObj),
+    apiContainer: useUserRoutes(User, mailObj),
     ...require("./tests/config.js"),
   });
 app.use((req, res, next) => {
@@ -20,7 +20,7 @@ app.use((req, res, next) => {
   next();
 });
 
-addRoutes(app, useUser, mailObj);
+addRoutes(app, User, mailObj);
 
 const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
   useUserRoutes(useOtherUser, mailObj);
@@ -74,10 +74,10 @@ describe("getToken", () => {
     expect(checkType(response, "getToken")).toBeTruthy();
   });
   test("Wrong password", async () => {
-    const [, User] = useUser(getPool());
-
     await (
-      await new User({ email: "tester@test.de" }).setPw("a12345678")
+      await new User(getPool(), [{ email: "tester@test.de" }]).setPw(
+        "a12345678",
+      )
     ).store();
 
     const response = await request(app)
@@ -96,8 +96,7 @@ describe("getToken", () => {
     expect(checkType(response, "getToken")).toBeTruthy();
   });
   test("Successfull login", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/login"))
       .auth("tester@test.de", "a12345678");
@@ -110,8 +109,7 @@ describe("getToken", () => {
     expect(checkType(response, "getToken")).toBeTruthy();
   });
   test("Successfull login with wrongly cased email", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/login"))
       .auth("teSTER@test.de", "a12345678");
@@ -125,22 +123,15 @@ describe("getToken", () => {
   });
 
   test("Extra infos in token", async () => {
-    const [, User] = useUser();
-
     class User1 extends User {
       getExtraAPITokenContent() {
         return { tada: 4 };
       }
     }
-    const newUsers = useUser();
-    newUsers[1] = User1;
-    const { getToken } = useUserRoutes(
-      makeModel("User", newUsers).useUser,
-      mailObj,
-    );
+    const { getToken } = useUserRoutes(User1, mailObj);
     app.get("/v/1/user1/login", getToken);
 
-    const user = await new User(getPool()).load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
 
     const response = await request(app)
       .get(url("user1/login"))
@@ -224,8 +215,7 @@ describe("getAPIToken", () => {
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Wrong token", async () => {
-    const [, User] = useUser(getPool());
-    await new User().load({ email: "tester@test.de" });
+    await new User(getPool()).loadOne({ email: "tester@test.de" });
 
     const response = await request(app)
       .get(url("user/apiToken"))
@@ -243,8 +233,7 @@ describe("getAPIToken", () => {
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Success", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/apiToken"))
       .auth("tester@test.de", user.content.token);
@@ -253,8 +242,7 @@ describe("getAPIToken", () => {
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Extra dynamic infos in token", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await user.getAPIToken({
       venueId: "2",
     });
@@ -266,8 +254,7 @@ describe("getAPIToken", () => {
     );
   });
   test("Extra dynamic options of token", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await user.getAPIToken(
       {},
       {
@@ -287,8 +274,7 @@ describe("getAPIToken", () => {
     );
   });
   test("Call getAPIToken on invalid user", async () => {
-    const [, User] = useUser(getPool());
-    const user = new User({});
+    const user = new User(getPool(), [{}]);
     await expect(async () => await user.getAPIToken()).rejects.toThrow();
   });
 });
@@ -313,14 +299,15 @@ describe("signup", () => {
     expect(response.statusCode).toBe(400);
   });
   test("Success", async () => {
-    const [, User] = useUser(getPool());
     const response = await request(app).post(url("user")).send({
       email: "newuser@test.de",
     });
     expect(response.body).toBe("ok");
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "addUser")).toBeTruthy();
-    const user = await new User().load({ email: "newuser@test.de" });
+    const user = await new User(getPool()).loadOne({
+      email: "newuser@test.de",
+    });
     expect(user.content.email).toBe("newuser@test.de");
     expect(user.content.createdon).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
     expect(user.content.token).toBeTruthy();
@@ -336,8 +323,6 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
   });
   test("Success with extra data", async () => {
-    const [, User] = useUser();
-
     const mockFn = jest.fn();
 
     class User1 extends User {
@@ -345,12 +330,7 @@ describe("signup", () => {
         mockFn(extra);
       }
     }
-    const newUsers = useUser();
-    newUsers[1] = User1;
-    const { addUser } = useUserRoutes(
-      makeModel("User", newUsers).useUser,
-      mailObj,
-    );
+    const { addUser } = useUserRoutes(User1, mailObj);
     app.post("/v/1/user2", addUser);
 
     const response = await request(app)
@@ -364,7 +344,9 @@ describe("signup", () => {
     expect(response.body).toBe("ok");
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "addUser")).toBeTruthy();
-    const user = await new User(getPool()).load({ email: "newuser2@test.de" });
+    const user = await new User(getPool()).loadOne({
+      email: "newuser2@test.de",
+    });
     expect(user.content.email).toBe("newuser2@test.de");
     expect(user.content.createdon).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
     expect(user.content.token).toBeTruthy();
@@ -411,8 +393,7 @@ describe("get user", () => {
     expect(checkType(response, "getUser")).toBeTruthy();
   });
   test("Success", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user"))
       .auth("tester@test.de", user.content.token);
@@ -436,14 +417,15 @@ describe("reset password", () => {
     expect(checkType(response, "resetPassword")).toBeTruthy();
   });
   test("Success", async () => {
-    const [, User] = useUser(getPool());
-    const userOld = await new User().load({ email: "tester@test.de" });
+    const userOld = await new User(getPool()).loadOne({
+      email: "tester@test.de",
+    });
 
     const response = await request(app).post(url("user/tester@test.de/reset"));
     expect(response.body).toBe("ok");
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "resetPassword")).toBeTruthy();
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     expect(user.content.token).toBe(userOld.content.token);
     expect(user.content.tokenforreset).toBeTruthy();
 
@@ -491,8 +473,7 @@ describe("alter user", () => {
   });
 
   test("Alter password with loginToken", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/login"))
       .auth("tester@test.de", "a12345678");
@@ -506,7 +487,9 @@ describe("alter user", () => {
       .auth("tester@test.de", user.content.token)
       .send({ password: "jkl123a9a##" });
     expect(response2.statusCode).toBe(200);
-    const usernew = await new User().load({ email: "tester@test.de" });
+    const usernew = await new User(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     expect(usernew.content.token === user.content.token).toBeFalsy();
     expect(response2.body).toMatchObject({
       id: user.content.id,
@@ -530,15 +513,16 @@ describe("alter user", () => {
   });
 
   test("Alter password with resetToken", async () => {
-    const [, User] = useUser(getPool());
     await request(app).post(url("user/tester@test.de/reset"));
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
       .auth("tester@test.de", user.content.tokenforreset)
       .send({ password: "?aoRisetn39!!" });
     expect(response2.statusCode).toBe(200);
-    const usernew = await new User().load({ email: "tester@test.de" });
+    const usernew = await new User(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     expect(usernew.content.token === user.content.token).toBeFalsy();
     expect(response2.body).toMatchObject({
       id: user.content.id,
@@ -562,9 +546,8 @@ describe("alter user", () => {
   });
 
   test("Refuses to alter password if password does not meet requirements", async () => {
-    const [, User] = useUser(getPool());
     await request(app).post(url("user/tester@test.de/reset"));
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
 
     const response2 = await request(app)
       .put(url("other/user"))
@@ -579,8 +562,7 @@ describe("alter user", () => {
   });
 
   test("Don't alter anything", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
       .auth("tester@test.de", user.content.token)
@@ -589,15 +571,16 @@ describe("alter user", () => {
     expect(response2.body).toMatchObject({
       error: "Nothing to update",
     });
-    const usernew = await new User().load({ email: "tester@test.de" });
+    const usernew = await new User(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     expect(usernew.content).toMatchObject(user.content);
 
     expect(checkType(response2, "updateUser")).toBeTruthy();
   });
   test("Omit password on pw reset", async () => {
-    const [, User] = useUser(getPool());
     await request(app).post(url("user/tester@test.de/reset"));
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
       .auth("tester@test.de", user.content.tokenforreset)
@@ -606,7 +589,9 @@ describe("alter user", () => {
     expect(response2.body).toMatchObject({
       error: "Password required",
     });
-    const usernew = await new User().load({ email: "tester@test.de" });
+    const usernew = await new User(getPool()).loadOne({
+      email: "tester@test.de",
+    });
     expect(usernew.content).toMatchObject({
       ...user.content,
       tokenforreset: null,
@@ -648,8 +633,7 @@ describe("delete user", () => {
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Token login", async () => {
-    const [, User] = useUser(getPool());
-    const user = await new User().load({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .del(url("user"))
       .auth("tester@test.de", user.content.token);
@@ -658,8 +642,7 @@ describe("delete user", () => {
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Delete user", async () => {
-    const [, User] = useUser(getPool());
-    await new User().load({ email: "tester@test.de" });
+    await new User(getPool()).loadOne({ email: "tester@test.de" });
 
     const response1 = await request(app)
       .get(url("user/login"))

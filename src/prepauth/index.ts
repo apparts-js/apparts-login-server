@@ -1,5 +1,6 @@
 import { NotFound } from "@apparts/model";
 import {
+  AuthResponse,
   BodyObj,
   HttpError,
   httpErrorSchema,
@@ -14,6 +15,7 @@ import {
 import { basicAuth } from "./authorizationHeader";
 
 import { ActualRequestType } from "../types";
+import { UseUserType } from "model/user";
 
 type FunType<
   BodyType extends BodyObj,
@@ -31,11 +33,12 @@ const _prepauth = <
   ParamsType extends ParamsObj,
   QueryType extends QueryObj,
   ReturnTypes extends ReturnsArray,
+  AuthType extends AuthResponse,
 >(
-  options: OptionsType<BodyType, ParamsType, QueryType, ReturnTypes>,
+  options: OptionsType<BodyType, ParamsType, QueryType, ReturnTypes, AuthType>,
   fun: FunType<BodyType, ParamsType, QueryType, ReturnTypes>,
   usePw: boolean,
-  User,
+  User: UseUserType,
 ) => {
   return prepare(
     options,
@@ -49,7 +52,7 @@ const _prepauth = <
       }
       const user = new User(req.ctx.dbs);
       try {
-        await user.load({ email: email.toLowerCase(), deleted: false });
+        await user.loadOne({ email: email.toLowerCase(), deleted: false });
         if (usePw) {
           await user.checkAuthPw(token);
         } else {
@@ -74,14 +77,21 @@ _prepauth.returns = [
 ];
 
 export const prepauthToken =
-  (User) =>
+  (User: UseUserType) =>
   <
     BodyType extends BodyObj,
     ParamsType extends ParamsObj,
     QueryType extends QueryObj,
     ReturnTypes extends ReturnsArray,
+    AuthType extends AuthResponse,
   >(
-    options: OptionsType<BodyType, ParamsType, QueryType, ReturnTypes>,
+    options: OptionsType<
+      BodyType,
+      ParamsType,
+      QueryType,
+      ReturnTypes,
+      AuthType
+    >,
     fun: FunType<BodyType, ParamsType, QueryType, ReturnTypes>,
   ) => {
     return _prepauth(
@@ -101,14 +111,21 @@ export const prepauthToken =
 prepauthToken.returns = _prepauth.returns;
 
 export const prepauthPW =
-  (User) =>
+  (User: UseUserType) =>
   <
     BodyType extends BodyObj,
     ParamsType extends ParamsObj,
     QueryType extends QueryObj,
     ReturnTypes extends ReturnsArray,
+    AuthType extends AuthResponse,
   >(
-    options: OptionsType<BodyType, ParamsType, QueryType, ReturnTypes>,
+    options: OptionsType<
+      BodyType,
+      ParamsType,
+      QueryType,
+      ReturnTypes,
+      AuthType
+    >,
     fun: FunType<BodyType, ParamsType, QueryType, ReturnTypes>,
   ) => {
     return _prepauth(

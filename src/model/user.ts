@@ -1,5 +1,5 @@
 import { HttpError } from "@apparts/prep";
-import { useModel, makeModel } from "@apparts/model";
+import { useModel } from "@apparts/model";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { get as getConfig } from "@apparts/config";
@@ -38,15 +38,12 @@ const userSchema = types.obj({
 export type UserType = types.InferType<typeof userSchema>;
 
 export const createUseUser = (inputTypes: Type, collectionName = "users") => {
-  const [Users, _User, NoUser] = useModel<UserType, never>(
-    {
-      ...userSchema.getModelType(),
-      ...inputTypes,
-    },
-    collectionName,
-  );
+  const UsersBase = useModel({
+    typeSchema: userSchema,
+    collection: collectionName,
+  });
 
-  class User extends _User {
+  class Users extends UsersBase {
     // content: UserType;
     resetTokenUsed = false;
 
@@ -78,7 +75,7 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
       };
     }
 
-    async _checkToken(token) {
+    async _checkToken(token: string) {
       if (
         !token ||
         (token !== this.content.token && token !== this.content.tokenforreset)
@@ -88,17 +85,16 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
       if (this.content.tokenforreset) {
         this.content.tokenforreset = undefined;
         this.resetTokenUsed = true;
-        // @ts-ignore
         await this.update();
       }
       return this;
     }
 
-    async checkAuth(token) {
+    async checkAuth(token: string) {
       return await this._checkToken(token);
     }
 
-    async _checkPw(password) {
+    async _checkPw(password: string) {
       if (!this.content.hash) {
         throw new HttpError(401, "Please reset your password.");
       }
@@ -110,11 +106,11 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
       }
     }
 
-    checkAuthPw(password) {
+    checkAuthPw(password: string) {
       return this._checkPw(password);
     }
 
-    async setPw(password) {
+    async setPw(password: string) {
       const hash = await bcrypt.hash(password, UserSettings.pwHashRounds);
       this.content.hash = hash;
       return this;
@@ -149,7 +145,6 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
     async getExtraAPITokenContent() {}
 
     async getAPIToken(extraDynamicContent = {}, extraJWTOptions = {}) {
-      // @ts-ignore
       if (!this._checkTypes([this.content])) {
         throw new Error("User: getAPIToken called on a non-valid user");
       }
@@ -162,7 +157,7 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
         ...extra,
         ...extraDynamicContent,
       };
-      return await JWT.sign(payload, webtokenkey, {
+      return JWT.sign(payload, webtokenkey, {
         expiresIn: expireTime,
         ...extraJWTOptions,
       });
@@ -172,10 +167,11 @@ export const createUseUser = (inputTypes: Type, collectionName = "users") => {
       this.content.token = undefined;
       this.content.tokenforreset = undefined;
       this.content.deleted = true;
-      // @ts-ignore
-      this.update();
+      await this.update();
     }
   }
 
-  return makeModel("User", [Users, User, NoUser]);
+  return Users;
 };
+
+export type UseUserType = ReturnType<typeof createUseUser>;

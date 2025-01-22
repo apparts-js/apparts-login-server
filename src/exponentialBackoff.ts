@@ -1,19 +1,21 @@
 import { HttpError } from "@apparts/prep";
 import { GenericDBS } from "@apparts/db";
+import { UseLoginsType } from "model/logins";
 
 export const checkAuthPwExponential = async (
   dbs: GenericDBS,
-  useLogin,
+  Logins: UseLoginsType,
   userId: string,
   password: string,
   checkAuthPw: (pw: string) => Promise<void>,
 ) => {
-  const [Logins, Login] = useLogin(dbs);
-  const thisLogin = await new Login({
-    userId,
-  }).store();
+  const thisLogin = await new Logins(dbs, [
+    {
+      userId,
+    },
+  ]).store();
 
-  const lastLoginsDb = await new Logins().load({ userId }, 10, 0, [
+  const lastLoginsDb = await new Logins(dbs).load({ userId }, 10, 0, [
     { key: "created", dir: "DESC" },
   ]);
   const lastLogins = lastLoginsDb.contents.filter(

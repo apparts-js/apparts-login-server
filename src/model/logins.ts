@@ -1,4 +1,4 @@
-import { useModel, makeModel } from "@apparts/model";
+import { useModel } from "@apparts/model";
 import { v7 as uuid } from "uuid";
 import * as types from "@apparts/types";
 
@@ -19,14 +19,13 @@ const loginSchema = types.obj({
 });
 export type LoginType = types.InferType<typeof loginSchema>;
 
-export default (types, collectionName = "logins") => {
-  const [Logins, Login, NoLogin] = useModel(
-    {
-      ...loginSchema.getModelType(),
-      ...types,
-    },
-    collectionName,
-  );
+export const createUseLogins = (types, collectionName = "logins") => {
+  const Logins = useModel({
+    typeSchema: loginSchema,
+    collection: collectionName,
+  });
 
-  return makeModel("Login", [Logins, Login, NoLogin]);
+  return Logins;
 };
+
+export type UseLoginsType = ReturnType<typeof createUseLogins>;

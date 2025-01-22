@@ -33,15 +33,15 @@
   "license": "MIT",
   "dependencies": {
     "@apparts/config": "^1.2.0",
-    "@apparts/model": "^4.6.3",
-    "@apparts/prep": "^1.0.4",
-    "@apparts/types": "^7.2.0",
+    "@apparts/model": "^5.2.0",
+    "@apparts/prep": "^2.5.1",
+    "@apparts/types": "^9.9.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^11.0.5"
   },
   "devDependencies": {
-    "@apparts/backend-test": "^3.0.0",
+    "@apparts/backend-test": "^4.0.1",
     "@apparts/db": "^3.5.1",
     "@swc/jest": "^0.2.37",
     "@types/bcryptjs": "^2.4.6",

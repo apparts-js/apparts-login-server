@@ -3,11 +3,11 @@ import {
   prepauthPW as prepauthPW_,
   prepauthToken as prepauthToken_,
 } from "../../prepauth";
-import { NotFound, DoesExist } from "@apparts/model";
+import { NotFound, NotUnique } from "@apparts/model";
 import { get as getConfig } from "@apparts/config";
 import { PasswordNotValidError } from "../../errors";
 import * as types from "@apparts/types";
-import { ActualRequestType } from "../../types";
+import { UseUserType } from "model/user";
 
 const UserSettings = getConfig("login-config");
 
@@ -19,11 +19,15 @@ const makeFakeSchema = (type) =>
     getModelType() {
       return type;
     },
-  }) as types.Obj<any, true>;
+  }) as types.Obj<any, any>;
 
-export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
-  const prepauthPW = prepauthPW_(useUser()[1]);
-  const prepauthToken = prepauthToken_(useUser()[1]);
+export const useUserRoutes = (
+  User: UseUserType,
+  mail,
+  settings = UserSettings,
+) => {
+  const prepauthPW = prepauthPW_(User);
+  const prepauthToken = prepauthToken_(User);
   const addUser = prepare(
     {
       title: "Add a user",
@@ -34,20 +38,22 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         }),
       },
       returns: [types.value("ok"), httpErrorSchema(413, "User exists")],
+      hasAccess: async () => true,
     },
     // @ts-ignore
     async ({ ctx: { dbs }, body: { email, ...extra } }) => {
-      const [, User] = useUser(dbs);
-      const me = new User({
-        email: email.toLowerCase(),
-      });
+      const me = new User(dbs, [
+        {
+          email: email.toLowerCase(),
+        },
+      ]);
 
       await me.setExtra(extra);
       await me.genResetToken();
       try {
         await me.store();
       } catch (e) {
-        if (e instanceof DoesExist) {
+        if (e instanceof NotUnique) {
           return new HttpError(413, "User exists");
         }
         throw e;
@@ -66,9 +72,10 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         makeFakeSchema({ type: "object", values: { type: "/" } }),
         httpErrorSchema(401, "Unauthorized"),
       ],
+      hasAccess: async () => true,
     },
-    async (_, me) => {
-      return me.getPublic();
+    async (_, me: InstanceType<UseUserType>) => {
+      return (await me.getPublic())[0];
     },
   );
 
@@ -88,6 +95,7 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         httpErrorSchema(401, "Unauthorized"),
         httpErrorSchema(425, "Login failed, too often."),
       ],
+      hasAccess: async () => true,
     },
     async (req, me) => {
       const apiToken = await me.getAPIToken();
@@ -109,6 +117,7 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         }),
         httpErrorSchema(401, "Unauthorized"),
       ],
+      hasAccess: async () => true,
     },
     async (req, me) => {
       const apiToken = await me.getAPIToken();
@@ -121,6 +130,7 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Delete a user",
       receives: {},
       returns: [types.value("ok"), httpErrorSchema(401, "Unauthorized")],
+      hasAccess: async () => true,
     },
     async (_, me) => {
       await me.deleteMe();
@@ -133,8 +143,8 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
       title: "Update a user",
       description: "Currently, only updating the password is supported.",
       receives: {
-        body: makeFakeSchema({
-          password: { type: "password", optional: true },
+        body: types.obj({
+          password: types.string().semantic("password").optional(),
         }),
       },
       returns: [
@@ -151,6 +161,7 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         httpErrorSchema(400, "The new password does not meet all requirements"),
         httpErrorSchema(401, "Unauthorized"),
       ],
+      hasAccess: async () => true,
     },
     async ({ body: { password } }, me) => {
       if (me.resetTokenUsed) {
@@ -200,14 +211,13 @@ export const useUserRoutes = (useUser, mail, settings = UserSettings) => {
         }),
       },
       returns: [httpErrorSchema(404, "User not found"), types.value("ok")],
+      hasAccess: async () => true,
     },
     // @ts-ignore
     async ({ ctx: { dbs }, params: { email } }) => {
-      const [, User] = useUser(dbs);
-
-      const me = new User();
+      const me = new User(dbs);
       try {
-        await me.load({ email: email.toLowerCase(), deleted: false });
+        await me.loadOne({ email: email.toLowerCase(), deleted: false });
       } catch (e) {
         if (e instanceof NotFound) {
           return new HttpError(404, "User not found");
