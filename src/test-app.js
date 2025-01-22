@@ -17,10 +17,10 @@ module.exports = (DB_CONFIG) => (useUser, mail) => {
           queryStringParameters: {
             foo: "💩",
           },
-        })
+        }),
       ),
       "x-apigateway-context": encodeURIComponent(
-        JSON.stringify({ foo: "bar" })
+        JSON.stringify({ foo: "bar" }),
       ),
     };
 
