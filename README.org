@@ -9,10 +9,10 @@
 1. ~npm i --save @apparts/login-server~
 2. Add the package to your codebase:
    #+BEGIN_SRC js
-     const { addRoutes, createUseUser } = require("@apparts/login-server");
-     const express = require("express");
+     import { addUserRoutes, createUserModel } from "@apparts/login-server";
+     import express from "express";
 
-     const { useUser } = createUseUser();
+     const User = createUserModel();
 
      const app = express();
      // ...
@@ -22,13 +22,13 @@
          //   ...
        }
      };
-     addRoutes(app, useUser, mail);
+     addUserRoutes(app, User, mail);
      // ...
    #+END_SRC
    - If you need to specify the route version by yourself:
      #+BEGIN_SRC js
        const newApiVersion = 2;
-       addRoutes(app, useUser, mail, newApiVersion);
+       addRoutes(app, User, mail, newApiVersion);
        // routes will start with /v/2/...
 
        const oldApiVersion = 1;
@@ -40,7 +40,7 @@
      #+END_SRC
    - If you need to specify the route names (and methods) by yourself:
      #+BEGIN_SRC js
-       const { routes } = require("@apparts/login-server");
+       import { routes } from "@apparts/login-server";
 
        const {  addUser,
                 getUser,
@@ -48,7 +48,7 @@
                 getAPIToken,
                 deleteUser,
                 updateUser,
-                resetPassword, } = routes(useUser, mail);
+                resetPassword, } = routes(User, mail);
 
        // E.g.:
        app.post("/v/1/user", addUser);
@@ -62,35 +62,36 @@
    - If you need to configure the User-model:
      - The table name (default ~users~):
        #+BEGIN_SRC js
-         const { createUseUser } = require("@apparts/login-server");
-         const { useUser } = createUseUser(undefined, "myTableName");
+         import { createUserModel } from "@apparts/login-server";
+         const User = createUserModel(undefined, "myTableName");
        #+END_SRC
      - The types of the user (see [[https://github.com/phuhl/apparts-types#usage][@apparts/types]]):
        #+BEGIN_SRC js
-         const { createUseUser } = require("@apparts/login-server");
-         const { useUser } = createUseUser({ customElement: { type: "string", public: true }});
+         import { createUserModel } from "@apparts/login-server";
+         const User = createUserModel({ customElement: { type: "string", public: true }});
        #+END_SRC
      -  Overwriting functions of the user: See [[Overwriting functions of the User-model]]
        #+BEGIN_SRC js
-         const { makeModel } = require("@apparts/model");
-         const { createUseUser } = require("@apparts/login-server");
-         const { Users, User, NoUser } = createUseUser(/* <custom type>, <custom table name>*/);
+         import { makeModel } from "@apparts/model";
+         import { createUserModel } from "@apparts/login-server";
+         const Users = createUserModel(/* <custom type>, <custom table name>*/);
 
          // e.g. for User
-         class SpecialUser extends User {
+         export class SpecialUser extends Users {
            /* overwrite stuff here */
          }
 
-         module.exports = makeModel("SpecialUser", [Users, SpecialUser, NoUser]);
        #+END_SRC
        
 ** Configuration
 
-In =db-config=
-- ~bigIntAsNumber~ must be ~true~
+Your Requests need to be modified by a middleware so that the key =ctx=
+contains an object of the following type is added to the request:
 
-In =types-config=
--   ~idType~ must be ~"int"~
+#+BEGIN_SRC typescript
+type Context = { dbs: GenericDBS };
+#+END_SRC
+
 
 The configuration options for this component have to be stored
 accessible by the =apparts-config=-module through the name =login-config=.
@@ -129,7 +130,7 @@ to set the password. In case of rejection a =PasswordNotValidError=
 should be thrown.
 
 #+BEGIN_SRC js
-const { PasswordNotValidError } = require("@apparts/login-server");
+import { PasswordNotValidError } from "@apparts/login-server";
 
 //...
 
@@ -145,25 +146,25 @@ const { PasswordNotValidError } = require("@apparts/login-server");
 *** Login: Exponential Backoff
 
 To archive exponential backoff you need to create a database table
-=logins= and use the =createUseLogins= function to generate the model.
+=logins= and use the =createLoginsModel= function to generate the model.
 
 Then you can overwrite the =checkAuthPw= function of the user model:
 
 #+BEGIN_SRC js
-const { createUseLogins } = require("@apparts/login-server");
-const { useLogin } = createUseLogins();
+import { createLoginsModel } from "@apparts/login-server";
+const Logins = createLoginsModel();
 
-const { checkAuthPwExponential } = require("@apparts/login-server");
+import { checkAuthPwExponential } from "@apparts/login-server";
 
 //...
 
   checkAuthPw(password) {
     return checkAuthPwExponential(
       this._dbs,
-      useLogin,
+      Logins,
       this.content.id,
       password,
-      (password) => super.checkAuthPw(password)
+      async (password) => { await super.checkAuthPw(password); }
     );
   }
 #+END_SRC
