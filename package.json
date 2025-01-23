@@ -1,6 +1,6 @@
 {
   "name": "@apparts/login-server",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Login and Signup for Web, Apps, Server",
   "module": "dist/index.esm.js",
   "main": "dist/index.cjs.js",
