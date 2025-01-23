@@ -16,7 +16,7 @@
     "noImplicitThis": false,
     "strictNullChecks": true,
     "strict": true,
-    "declaration": false
+    "declaration": true
   },
   "extends": "@tsconfig/node20/tsconfig.json",
   "include": ["src"],
