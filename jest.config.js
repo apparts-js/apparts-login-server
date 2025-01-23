@@ -4,9 +4,8 @@ module.exports = {
   ...jestConfig,
   testEnvironment: "node",
   transform: {
-    "^.+\\.[tj]s$": "@swc/jest",
+    //    "^.+\\.[tj]s$": "@swc/jest",
+    "^.+\\.[tj]s$": "ts-jest",
   },
-  // transform: {
-  //   "^.+.tsx?$": ["ts-jest", {}],
-  // },
+  testPathIgnorePatterns: ["dist", "node_modules"],
 };

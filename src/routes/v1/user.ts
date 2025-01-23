@@ -7,7 +7,7 @@ import { NotFound, NotUnique } from "@apparts/model";
 import { get as getConfig } from "@apparts/config";
 import { PasswordNotValidError } from "../../errors";
 import * as types from "@apparts/types";
-import { UseUserType } from "model/user";
+import { UserConstructorType } from "model/user";
 
 const UserSettings = getConfig("login-config");
 
@@ -23,7 +23,7 @@ const makeFakeSchema = (type) =>
   }) as types.Obj<any, any>;
 
 export const useUserRoutes = (
-  User: UseUserType,
+  User: UserConstructorType,
   mail: {
     sendMail: (email: string, body: string, title: string) => Promise<void>;
   },
@@ -77,7 +77,7 @@ export const useUserRoutes = (
       ],
       hasAccess: async () => true,
     },
-    async (_, me: InstanceType<UseUserType>) => {
+    async (_, me: InstanceType<UserConstructorType>) => {
       return (await me.getPublic())[0];
     },
   );

@@ -1,15 +1,16 @@
 import {
-  createUserModel,
-  createLoginsModel,
+  BaseUsers,
+  userSchema,
+  BaseLogins,
+  loginSchema,
   PasswordNotValidError,
   checkAuthPwExponential,
 } from "../";
+import { useModel } from "@apparts/model";
 
-const Login = createLoginsModel({});
+export class Logins extends BaseLogins<typeof loginSchema> {}
 
-const Users = createUserModel({}, "users");
-
-class OtherUsers extends Users {
+export class OtherUsers extends BaseUsers<typeof userSchema> {
   async setPw(password: string) {
     if (password.length < 10) {
       throw new PasswordNotValidError("Password must be 10+ characters");
@@ -21,7 +22,7 @@ class OtherUsers extends Users {
   async checkAuthPw(password: string) {
     await checkAuthPwExponential(
       this._dbs,
-      Login,
+      Logins,
       this.content.id,
       password,
       async (password) => {
@@ -31,5 +32,4 @@ class OtherUsers extends Users {
     return this;
   }
 }
-
-module.exports = OtherUsers;
+useModel(OtherUsers, { typeSchema: userSchema, collection: "users" });

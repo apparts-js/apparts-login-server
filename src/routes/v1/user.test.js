@@ -1,19 +1,23 @@
-const request = require("supertest");
-const { createUserModel } = require("../../model/user");
-const mailObj = {};
-const { addRoutes } = require("../");
-const { useUserRoutes } = require("./user");
+import request from "supertest";
+import { BaseUsers, userSchema } from "../../model/user";
+import { useModel } from "@apparts/model";
+const mailObj = {
+  sendMail: () => Promise.resolve(),
+};
+import { addRoutes } from "../";
+import { useUserRoutes } from "./user";
 
-const User = createUserModel();
+class User extends BaseUsers {}
+useModel(User, { typeSchema: userSchema, collection: "users" });
 
-const useOtherUser = require("../../tests/otherUser");
+import { OtherUsers } from "../../tests/otherUser";
 
-const { checkType, allChecked, app, url, error, getPool } =
-  require("@apparts/backend-test")({
-    testName: "user",
-    apiContainer: useUserRoutes(User, mailObj),
-    ...require("./tests/config.js"),
-  });
+import beTests from "@apparts/backend-test";
+const { checkType, allChecked, app, url, error, getPool } = beTests({
+  testName: "user",
+  apiContainer: useUserRoutes(User, mailObj),
+  ...require("./tests/config.js"),
+});
 app.use((req, res, next) => {
   req.ctx = { dbs: req.dbs };
   next();
@@ -22,14 +26,16 @@ app.use((req, res, next) => {
 addRoutes(app, User, mailObj);
 
 const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
-  useUserRoutes(useOtherUser, mailObj);
+  useUserRoutes(OtherUsers, mailObj);
 app.put("/v/1/other/user", updateOtherUser);
 app.get("/v/1/other/user/login", getOtherUserToken);
 
+import { get as getConfig } from "@apparts/config";
 const {
   apiToken: { webtokenkey, expireTime },
-} = require("@apparts/config").get("login-config");
-const JWT = require("jsonwebtoken");
+} = getConfig("login-config");
+
+import JWT from "jsonwebtoken";
 const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
   JWT.sign(
     {

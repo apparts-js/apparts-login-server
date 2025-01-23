@@ -15,7 +15,7 @@ import {
 import { basicAuth } from "./authorizationHeader";
 
 import { ActualRequestType } from "../types";
-import { UseUserType } from "model/user";
+import { UserConstructorType } from "model/user";
 
 type FunType<
   BodyType extends BodyObj,
@@ -24,7 +24,7 @@ type FunType<
   ReturnTypes extends ReturnsArray,
 > = (
   req: ActualRequestType<BodyType, ParamsType, QueryType>,
-  user: InstanceType<UseUserType>,
+  user: InstanceType<UserConstructorType>,
   res: ResponseType,
 ) => Promise<OneOfReturnTypes<ReturnTypes>>;
 
@@ -38,38 +38,40 @@ const _prepauth = <
   options: OptionsType<BodyType, ParamsType, QueryType, ReturnTypes, AuthType>,
   fun: FunType<BodyType, ParamsType, QueryType, ReturnTypes>,
   usePw: boolean,
-  User: UseUserType,
+  User: UserConstructorType,
 ) => {
-  return prepare(
-    options,
-    async (req: ActualRequestType<BodyType, ParamsType, QueryType>, res) => {
-      const [email, token] = basicAuth(req);
-      if (!email || !token) {
+  return prepare(options, async (req, res) => {
+    const { ctx } = req as ActualRequestType<BodyType, ParamsType, QueryType>;
+    const [email, token] = basicAuth(req);
+    if (!email || !token) {
+      return new HttpError(
+        400,
+        "Authorization wrong",
+      ) as OneOfReturnTypes<ReturnTypes>;
+    }
+    const user = new User(ctx.dbs);
+    try {
+      await user.loadOne({ email: email.toLowerCase(), deleted: false });
+      if (usePw) {
+        await user.checkAuthPw(token);
+      } else {
+        await user.checkAuth(token);
+      }
+    } catch (e) {
+      if (e instanceof NotFound) {
         return new HttpError(
-          400,
-          "Authorization wrong",
+          401,
+          "User not found",
         ) as OneOfReturnTypes<ReturnTypes>;
       }
-      const user = new User(req.ctx.dbs);
-      try {
-        await user.loadOne({ email: email.toLowerCase(), deleted: false });
-        if (usePw) {
-          await user.checkAuthPw(token);
-        } else {
-          await user.checkAuth(token);
-        }
-      } catch (e) {
-        if (e instanceof NotFound) {
-          return new HttpError(
-            401,
-            "User not found",
-          ) as OneOfReturnTypes<ReturnTypes>;
-        }
-        throw e;
-      }
-      return fun(req, user, res);
-    },
-  );
+      throw e;
+    }
+    return fun(
+      req as ActualRequestType<BodyType, ParamsType, QueryType>,
+      user,
+      res,
+    );
+  });
 };
 _prepauth.returns = [
   httpErrorSchema(401, "User not found"),
@@ -77,7 +79,7 @@ _prepauth.returns = [
 ];
 
 export const prepauthToken =
-  (User: UseUserType) =>
+  (User: UserConstructorType) =>
   <
     BodyType extends BodyObj,
     ParamsType extends ParamsObj,
@@ -111,7 +113,7 @@ export const prepauthToken =
 prepauthToken.returns = _prepauth.returns;
 
 export const prepauthPW =
-  (User: UseUserType) =>
+  (User: UserConstructorType) =>
   <
     BodyType extends BodyObj,
     ParamsType extends ParamsObj,

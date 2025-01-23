@@ -1,8 +1,8 @@
-import { useModel } from "@apparts/model";
+import { BaseModel, useModel } from "@apparts/model";
 import { v7 as uuid } from "uuid";
 import * as types from "@apparts/types";
 
-const loginSchema = types.obj({
+export const loginSchema = types.obj({
   id: types
     .string()
     // .semantic("id")
@@ -19,13 +19,10 @@ const loginSchema = types.obj({
 });
 export type LoginType = types.InferType<typeof loginSchema>;
 
-export const createLoginsModel = (types, collectionName = "logins") => {
-  const Logins = useModel({
-    typeSchema: loginSchema,
-    collection: collectionName,
-  });
+export class BaseLogins<
+  Schema extends typeof loginSchema,
+> extends BaseModel<Schema> {}
+useModel(BaseLogins, { typeSchema: loginSchema, collection: "logins" });
 
-  return Logins;
-};
-
-export type UseLoginsType = ReturnType<typeof createLoginsModel>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type LoginConstructorType = new (...ps: any[]) => BaseLogins<any>;
