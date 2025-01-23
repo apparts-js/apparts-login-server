@@ -1,32 +1,38 @@
 import request from "supertest";
 import { BaseUsers, userSchema } from "../../model/user";
 import { useModel } from "@apparts/model";
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const jestFn = jest.fn;
 const mailObj = {
-  sendMail: () => Promise.resolve(),
+  sendMail: () => {},
+} as {
+  sendMail: ReturnType<typeof jestFn>;
 };
 import { addRoutes } from "../";
 import { useUserRoutes } from "./user";
 
-class User extends BaseUsers {}
+class User extends BaseUsers<typeof userSchema> {}
 useModel(User, { typeSchema: userSchema, collection: "users" });
 
 import { OtherUsers } from "../../tests/otherUser";
 
 import beTests from "@apparts/backend-test";
+import testConfig from "./tests/config";
 const { checkType, allChecked, app, url, error, getPool } = beTests({
   testName: "user",
-  apiContainer: useUserRoutes(User, mailObj),
-  ...require("./tests/config.js"),
+  apiContainer: useUserRoutes(User, mailObj as Mailer),
+  ...testConfig,
 });
 app.use((req, res, next) => {
   req.ctx = { dbs: req.dbs };
   next();
 });
 
-addRoutes(app, User, mailObj);
+addRoutes(app, User, mailObj as Mailer);
 
 const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
-  useUserRoutes(OtherUsers, mailObj);
+  useUserRoutes(OtherUsers, mailObj as Mailer);
 app.put("/v/1/other/user", updateOtherUser);
 app.get("/v/1/other/user/login", getOtherUserToken);
 
@@ -36,6 +42,7 @@ const {
 } = getConfig("login-config");
 
 import JWT from "jsonwebtoken";
+import { Mailer } from "types";
 const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
   JWT.sign(
     {
@@ -129,11 +136,11 @@ describe("getToken", () => {
 
   test("Extra infos in token", async () => {
     class User1 extends User {
-      getExtraAPITokenContent() {
+      async getExtraAPITokenContent() {
         return { tada: 4 };
       }
     }
-    const { getToken } = useUserRoutes(User1, mailObj);
+    const { getToken } = useUserRoutes(User1, mailObj as Mailer);
     app.get("/v/1/user1/login", getToken);
 
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
@@ -151,7 +158,7 @@ describe("getToken", () => {
   });
 
   it("should back off exponentilly on failed login", async () => {
-    const responses = [];
+    const responses = [] as unknown[];
     for (let i = 0; i < 7; i++) {
       responses.push(
         await request(app)
@@ -248,7 +255,7 @@ describe("getAPIToken", () => {
   });
   test("Extra dynamic infos in token", async () => {
     class User1 extends User {
-      getExtraAPITokenContent() {
+      async getExtraAPITokenContent() {
         return { tada: 4 };
       }
     }
@@ -268,7 +275,7 @@ describe("getAPIToken", () => {
   });
   test("Extra dynamic options of token", async () => {
     class User1 extends User {
-      getExtraAPITokenContent() {
+      async getExtraAPITokenContent() {
         return { tada: 4 };
       }
     }
@@ -337,7 +344,7 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset,
+        user.content.tokenforreset!,
       )}&email=newuser%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
@@ -346,11 +353,11 @@ describe("signup", () => {
     const mockFn = jest.fn();
 
     class User1 extends User {
-      setExtra(extra) {
+      async setExtra(extra) {
         mockFn(extra);
       }
     }
-    const { addUser } = useUserRoutes(User1, mailObj);
+    const { addUser } = useUserRoutes(User1, mailObj as Mailer);
     app.post("/v/1/user2", addUser);
 
     const response = await request(app)
@@ -382,7 +389,7 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser2@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset,
+        user.content.tokenforreset!,
       )}&email=newuser2%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
@@ -453,7 +460,7 @@ describe("reset password", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("tester@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset,
+        user.content.tokenforreset!,
       )}&email=tester%40test.de`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Passwort vergessen?");

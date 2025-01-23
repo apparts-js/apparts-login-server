@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-module.exports = {
+export default {
   schemas: ["schema000"].map((schema) =>
     fs.readFileSync("./sql/" + schema + ".sql").toString(),
   ),

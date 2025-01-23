@@ -10,3 +10,7 @@ export type ActualRequestType<
     dbs: GenericDBS;
   };
 };
+
+export type Mailer = {
+  sendMail: (email: string, body: string, title: string) => Promise<void>;
+};

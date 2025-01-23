@@ -8,6 +8,7 @@ import { get as getConfig } from "@apparts/config";
 import { PasswordNotValidError } from "../../errors";
 import * as types from "@apparts/types";
 import { UserConstructorType } from "model/user";
+import { Mailer } from "types";
 
 const UserSettings = getConfig("login-config");
 
@@ -24,9 +25,7 @@ const makeFakeSchema = (type) =>
 
 export const useUserRoutes = (
   User: UserConstructorType,
-  mail: {
-    sendMail: (email: string, body: string, title: string) => Promise<void>;
-  },
+  mail: Mailer,
   settings = UserSettings,
 ) => {
   const prepauthPW = prepauthPW_(User);

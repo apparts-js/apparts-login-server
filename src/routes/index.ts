@@ -1,6 +1,7 @@
 import { useUserRoutes } from "./v1/user";
 import { Application } from "express";
 import { UserConstructorType } from "../model/user";
+import { Mailer } from "types";
 
 export const addRoutesForUpgrade = (
   app: Application,
@@ -19,9 +20,7 @@ export const addRoutesForUpgrade = (
 export const addRoutes = (
   app: Application,
   Users: UserConstructorType,
-  mail: {
-    sendMail: (email: string, body: string, title: string) => Promise<void>;
-  },
+  mail: Mailer,
   apiVersion = 1,
 ) => {
   const {
