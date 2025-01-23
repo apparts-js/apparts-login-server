@@ -1,9 +1,9 @@
 import { HttpError } from "@apparts/prep";
-import { GenericDBS } from "@apparts/db";
+import { GenericQueriable } from "@apparts/db";
 import { LoginConstructorType } from "model/logins";
 
 export const checkAuthPwExponential = async (
-  dbs: GenericDBS,
+  dbs: GenericQueriable,
   Logins: LoginConstructorType,
   userId: string,
   password: string,

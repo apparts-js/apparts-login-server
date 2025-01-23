@@ -33,7 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@apparts/config": "^1.2.0",
-    "@apparts/model": "^6.0.1",
+    "@apparts/model": "^6.0.2",
     "@apparts/model-api": "^5.0.0",
     "@apparts/prep": "^2.5.1",
     "@apparts/types": "^9.10.0",
