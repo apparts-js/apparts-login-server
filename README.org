@@ -9,10 +9,20 @@
 1. ~npm i --save @apparts/login-server~
 2. Add the package to your codebase:
    #+BEGIN_SRC js
-     import { addUserRoutes, createUserModel } from "@apparts/login-server";
+     import { addUserRoutes, BaseUsers, userSchema, } from "@apparts/login-server";
+     import { useModel } from "@apparts/model";
      import express from "express";
 
-     const User = createUserModel();
+     const customUserSchema = types.obj({
+       ...userSchema.getKeys(),
+       // Your additional types here
+     });
+
+
+     export class Users extends BaseUsers<typeof userSchema> {
+       // your custom methods here
+     }
+     useModel(OtherUsers, { typeSchema: userSchema, collection: "users" });
 
      const app = express();
      // ...
@@ -59,29 +69,6 @@
        app.put("/v/1/user", updateUser);
        app.post("/v/1/user/:email/reset", resetPassword);
      #+END_SRC
-   - If you need to configure the User-model:
-     - The table name (default ~users~):
-       #+BEGIN_SRC js
-         import { createUserModel } from "@apparts/login-server";
-         const User = createUserModel(undefined, "myTableName");
-       #+END_SRC
-     - The types of the user (see [[https://github.com/phuhl/apparts-types#usage][@apparts/types]]):
-       #+BEGIN_SRC js
-         import { createUserModel } from "@apparts/login-server";
-         const User = createUserModel({ customElement: { type: "string", public: true }});
-       #+END_SRC
-     -  Overwriting functions of the user: See [[Overwriting functions of the User-model]]
-       #+BEGIN_SRC js
-         import { makeModel } from "@apparts/model";
-         import { createUserModel } from "@apparts/login-server";
-         const Users = createUserModel(/* <custom type>, <custom table name>*/);
-
-         // e.g. for User
-         export class SpecialUser extends Users {
-           /* overwrite stuff here */
-         }
-
-       #+END_SRC
        
 ** Configuration
 
@@ -151,22 +138,25 @@ To archive exponential backoff you need to create a database table
 Then you can overwrite the =checkAuthPw= function of the user model:
 
 #+BEGIN_SRC js
-import { createLoginsModel } from "@apparts/login-server";
-const Logins = createLoginsModel();
+  import { BaseLogins, loginSchema } from "@apparts/login-server";
+  import { useModel } from "@apparts/model";
 
-import { checkAuthPwExponential } from "@apparts/login-server";
+  export class Logins extends BaseLogins<typeof loginSchema> {}
+  useModel(Logins, { typeSchema: loginSchema, collection: "logins" });
 
-//...
+  import { checkAuthPwExponential } from "@apparts/login-server";
 
-  checkAuthPw(password) {
-    return checkAuthPwExponential(
-      this._dbs,
-      Logins,
-      this.content.id,
-      password,
-      async (password) => { await super.checkAuthPw(password); }
-    );
-  }
+  //...
+
+    checkAuthPw(password) {
+      return checkAuthPwExponential(
+        this._dbs,
+        Logins,
+        this.content.id,
+        password,
+        async (password) => { await super.checkAuthPw(password); }
+      );
+    }
 #+END_SRC
 
 *** Overwriting functions of the User-model
