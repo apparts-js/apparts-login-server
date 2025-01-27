@@ -50,7 +50,7 @@
      #+END_SRC
    - If you need to specify the route names (and methods) by yourself:
      #+BEGIN_SRC js
-       import { routes } from "@apparts/login-server";
+       import { useUserRoutes } from "@apparts/login-server";
 
        const {  addUser,
                 getUser,
@@ -60,7 +60,7 @@
                 updateUser,
                 resetPassword,
                 logout
-                } = routes(User, mail);
+                } = useUserRoutes(User, mail);
 
        // E.g.:
        app.post("/v/1/user", addUser);
