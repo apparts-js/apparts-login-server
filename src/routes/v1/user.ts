@@ -125,7 +125,7 @@ export const useUserRoutes = (
     async (_, res) => {
       res.cookie("loginToken", "/", {
         httpOnly: true,
-        secure: true,
+        secure: !settings.cookie.allowUnsecure,
         sameSite: "strict",
         maxAge: ms(String(settings.cookie.expireTime) as StringValue),
       });
