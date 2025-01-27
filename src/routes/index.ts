@@ -10,6 +10,7 @@ export const addRoutesForUpgrade = (
 ) => {
   app.post("/v/" + apiVersion + "/user", f);
   app.get("/v/" + apiVersion + "/user/login", f);
+  app.post("/v/" + apiVersion + "/user/logout", f);
   app.get("/v/" + apiVersion + "/user/apiToken", f);
   app.get("/v/" + apiVersion + "/user", f);
   app.delete("/v/" + apiVersion + "/user", f);
@@ -31,10 +32,12 @@ export const addRoutes = (
     deleteUser,
     updateUser,
     resetPassword,
+    logout,
   } = useUserRoutes(Users, mail);
 
   app.post("/v/" + apiVersion + "/user", addUser);
   app.get("/v/" + apiVersion + "/user/login", getToken);
+  app.put("/v/" + apiVersion + "/user/logout", logout);
   app.get("/v/" + apiVersion + "/user/apiToken", getAPIToken);
   app.get("/v/" + apiVersion + "/user", getUser);
   app.delete("/v/" + apiVersion + "/user", deleteUser);

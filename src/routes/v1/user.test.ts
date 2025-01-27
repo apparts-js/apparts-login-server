@@ -43,6 +43,7 @@ const {
 
 import JWT from "jsonwebtoken";
 import { Mailer } from "types";
+
 const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
   JWT.sign(
     {
@@ -67,6 +68,9 @@ afterEach(() => {
   dateNowAll.mockRestore();
   mailObj.sendMail.mockRestore();
 });
+
+const getToken = (email: string, token: string) =>
+  encodeURIComponent(btoa(email + ":" + token));
 
 describe("getToken", () => {
   test("User does not exist", async () => {
@@ -114,9 +118,16 @@ describe("getToken", () => {
       .auth("tester@test.de", "a12345678");
     expect(response.body).toMatchObject({
       id: user.content.id,
-      loginToken: user.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
+    const setCookie = response.headers["set-cookie"];
+    expect(setCookie).toMatchObject([
+      `loginToken=${getToken(user.content.email, user.content.token!)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
+    ]);
+    const token = setCookie[0].split(";")[0].split("=")[1];
+    expect(atob(decodeURIComponent(token)).split(":")[0]).toBe(
+      "tester@test.de",
+    );
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getToken")).toBeTruthy();
   });
@@ -127,7 +138,6 @@ describe("getToken", () => {
       .auth("teSTER@test.de", "a12345678");
     expect(response.body).toMatchObject({
       id: user.content.id,
-      loginToken: user.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
     expect(response.statusCode).toBe(200);
@@ -150,7 +160,6 @@ describe("getToken", () => {
       .auth("tester@test.de", "a12345678");
     expect(response.body).toMatchObject({
       id: user.content.id,
-      loginToken: user.content.token,
       apiToken: jwt("tester@test.de", user.content.id, { tada: 4 }),
     });
     expect(response.statusCode).toBe(200);
@@ -211,27 +220,43 @@ describe("getToken", () => {
 
 describe("getAPIToken", () => {
   test("User does not exist", async () => {
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/apiToken"))
-      .auth("doesnotexist@test.de", "a12345678");
-    expect(response.body).toMatchObject(error("User not found"));
+      .set(
+        "Cookie",
+        `loginToken=${getToken("doesnotexist@test.de", user.content.token!)}`,
+      );
+
+    expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Empty email address", async () => {
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/apiToken"))
-      .auth("", "a12345678");
-    expect(response.body).toMatchObject(error("Authorization wrong"));
-    expect(response.statusCode).toBe(400);
+      .set("Cookie", `loginToken=${getToken("", user.content.token!)}`);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Wrong token", async () => {
-    await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
 
     const response = await request(app)
       .get(url("user/apiToken"))
-      .auth("tester@test.de", "aorsitenrstne");
+      .set(
+        "Cookie",
+        `loginToken=${getToken(user.content.email, "aorsitenrstne")}`,
+      );
+
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
+    expect(checkType(response, "getAPIToken")).toBeTruthy();
+  });
+  test("Missing cookie", async () => {
+    const response = await request(app).get(url("user/apiToken"));
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
@@ -239,16 +264,20 @@ describe("getAPIToken", () => {
   test("Empty token", async () => {
     const response = await request(app)
       .get(url("user/apiToken"))
-      .auth("tester@test.de", "");
-    expect(response.body).toMatchObject(error("Authorization wrong"));
-    expect(response.statusCode).toBe(400);
+      .set("Cookie", `loginToken=${getToken("tester@test.de", "")}`);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
   test("Success", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/apiToken"))
-      .auth("tester@test.de", user.content.token);
+      .set(
+        "Cookie",
+        `loginToken=${getToken(user.content.email, user.content.token!)}`,
+      );
+
     expect(response.body).toBe(jwt("tester@test.de", user.content.id));
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
@@ -303,6 +332,34 @@ describe("getAPIToken", () => {
   test("Call getAPIToken on invalid user", async () => {
     const user = new User(getPool(), [{}]);
     await expect(async () => await user.getAPIToken()).rejects.toThrow();
+  });
+});
+
+describe("logout", () => {
+  test("Missing token", async () => {
+    const response = await request(app).put(url("user/logout"));
+    expect(response.body).toBe("ok");
+    expect(response.statusCode).toBe(200);
+    expect(checkType(response, "logout")).toBeTruthy();
+  });
+  test("Success", async () => {
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const response = await request(app)
+      .put(url("user/logout"))
+      .set(
+        "Cookie",
+        `loginToken=${getToken(user.content.email, user.content.token!)}`,
+      );
+
+    expect(response.body).toBe("ok");
+    expect(response.statusCode).toBe(200);
+
+    const setCookie = response.headers["set-cookie"];
+    expect(setCookie).toStrictEqual([
+      "loginToken=%2F; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict",
+    ]);
+
+    expect(checkType(response, "logout")).toBeTruthy();
   });
 });
 
@@ -423,7 +480,7 @@ describe("get user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user"))
-      .auth("tester@test.de", user.content.token);
+      .auth("tester@test.de", user.content.token!);
     expect(response.body).toMatchObject({
       email: "tester@test.de",
       id: user.content.id,
@@ -506,12 +563,11 @@ describe("alter user", () => {
       .auth("tester@test.de", "a12345678");
     expect(response.body).toMatchObject({
       id: user.content.id,
-      loginToken: user.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.token)
+      .auth("tester@test.de", user.content.token!)
       .send({ password: "jkl123a9a##" });
     expect(response2.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
@@ -520,7 +576,6 @@ describe("alter user", () => {
     expect(usernew.content.token === user.content.token).toBeFalsy();
     expect(response2.body).toMatchObject({
       id: user.content.id,
-      loginToken: usernew.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
     const response3 = await request(app)
@@ -532,7 +587,6 @@ describe("alter user", () => {
       .auth("tester@test.de", "jkl123a9a##");
     expect(response4.body).toMatchObject({
       id: user.content.id,
-      loginToken: usernew.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
 
@@ -544,7 +598,7 @@ describe("alter user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.tokenforreset)
+      .auth("tester@test.de", user.content.tokenforreset!)
       .send({ password: "?aoRisetn39!!" });
     expect(response2.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
@@ -553,7 +607,6 @@ describe("alter user", () => {
     expect(usernew.content.token === user.content.token).toBeFalsy();
     expect(response2.body).toMatchObject({
       id: user.content.id,
-      loginToken: usernew.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
     const response3 = await request(app)
@@ -565,7 +618,6 @@ describe("alter user", () => {
       .auth("tester@test.de", "?aoRisetn39!!");
     expect(response4.body).toMatchObject({
       id: user.content.id,
-      loginToken: usernew.content.token,
       apiToken: jwt("tester@test.de", user.content.id),
     });
 
@@ -578,7 +630,7 @@ describe("alter user", () => {
 
     const response2 = await request(app)
       .put(url("other/user"))
-      .auth("tester@test.de", user.content.tokenforreset)
+      .auth("tester@test.de", user.content.tokenforreset!)
       .send({ password: "?aoR!!" });
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -592,7 +644,7 @@ describe("alter user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.token)
+      .auth("tester@test.de", user.content.token!)
       .send({});
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -610,7 +662,7 @@ describe("alter user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.tokenforreset)
+      .auth("tester@test.de", user.content.tokenforreset!)
       .send({});
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -663,7 +715,7 @@ describe("delete user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .del(url("user"))
-      .auth("tester@test.de", user.content.token);
+      .auth("tester@test.de", user.content.token!);
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "deleteUser")).toBeTruthy();
@@ -702,5 +754,6 @@ describe("All possible responses tested", () => {
     expect(allChecked("resetPassword")).toBeTruthy();
     expect(allChecked("updateUser")).toBeTruthy();
     expect(allChecked("deleteUser")).toBeTruthy();
+    expect(allChecked("logout")).toBeTruthy();
   });
 });

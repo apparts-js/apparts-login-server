@@ -58,11 +58,14 @@
                 getAPIToken,
                 deleteUser,
                 updateUser,
-                resetPassword, } = routes(User, mail);
+                resetPassword,
+                logout
+                } = routes(User, mail);
 
        // E.g.:
        app.post("/v/1/user", addUser);
        app.get("/v/1/user/login", getToken);
+       app.post("/v/1/user/logout", logout);
        app.get("/v/1/user/apiToken", getAPIToken);
        app.get("/v/1/user", getUser);
        app.delete("/v/1/user", deleteUser);
@@ -107,6 +110,17 @@ They are:
   can be used to validate extra parameters on user creation. These
   extra parameters will be passed to the ~setExtra~ function (see
   [[Overwriting the User-model]]).
+- apiToken {object} :: Configuration regarding the api token
+  - webtokenkey {string} :: The encryption key of the JWT.
+  - expireTime {string} :: The expiration time of the JWT as described
+    by [[https://github.com/vercel/ms][vercel/ms]].
+- cookie  :: Configuration regarding the cooke wich is used to store
+  the login token.
+  - expireTime {string} :: The expiration time of the cookie as described
+    by [[https://github.com/vercel/ms][vercel/ms]].
+  - allowUnsecure {boolean} = false :: Allow setting cookies on
+    non-https URLs. For more info, see [[https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#secure][Set-Cookie#Secure]].
+  
 
 *** Defining password policies
 
@@ -260,10 +274,16 @@ returned.
     :   type: "object",
     :   values: {
     :     id: { type: "id" },
-    :     loginToken: { type: "base64" },
     :     apiToken: { type: "string" },
     :   },
     : }
+  + 400, ~"Authorization wrong"~
+  + 401, ~"Unauthorized"~
+  + 401, ~"User not found""~
+*** Logout: PUT =/v/1/user/logout=
+
+- Returns
+  + 200, "ok"
   + 400, ~"Authorization wrong"~
   + 401, ~"Unauthorized"~
   + 401, ~"User not found""~
@@ -271,7 +291,7 @@ returned.
 *** Refresh API Token: GET =/v/1/user/apiToken=
 
 - Headers
-  - =Authorization= with =Bearer loginToken= 
+  - =Cookie= with =atob(email + loginToken)= (set automatically by login endpoint)
 - Returns
   + 200, 
     : {
@@ -310,7 +330,6 @@ checking for a minimum password length:
     :   type: "object",
     :   values: {
     :     id: { type: "id" },
-    :     loginToken: { type: "base64" },
     :     apiToken: { type: "string" },
     :   },
     : }

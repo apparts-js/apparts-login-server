@@ -1,6 +1,10 @@
 {
   "pwHashRounds": 10,
   "tokenLength": 32,
+  "cookie": {
+    "allowUnsecure": false,
+    "expireTime": "365 days"
+  },
   "apiToken": {
     "webtokenkey": "<change me>",
     "expireTime": "10 minutes"

@@ -9,6 +9,7 @@ import { PasswordNotValidError } from "../../errors";
 import * as types from "@apparts/types";
 import { UserConstructorType } from "model/user";
 import { Mailer } from "types";
+import ms, { StringValue } from "ms";
 
 const UserSettings = getConfig("login-config");
 
@@ -88,7 +89,6 @@ export const useUserRoutes = (
       returns: [
         types.obj({
           id: types.string(),
-          loginToken: types.base64(),
           apiToken: types.string(),
         }),
         httpErrorSchema(401, "Unauthorized"),
@@ -96,17 +96,44 @@ export const useUserRoutes = (
       ],
       hasAccess: async () => true,
     },
-    async (_, me) => {
+    async (_, me, res) => {
       const apiToken = await me.getAPIToken();
+      res.cookie(
+        "loginToken",
+        btoa(me.content.email + ":" + me.content.token),
+        {
+          httpOnly: true,
+          secure: !settings.cookie.allowUnsecure,
+          sameSite: "strict",
+          maxAge: ms(String(settings.cookie.expireTime) as StringValue),
+        },
+      );
       return {
         id: me.content.id,
-        loginToken: me.content.token ?? "",
         apiToken,
       };
     },
   );
 
-  const getAPIToken = prepauthToken(
+  const logout = prepare(
+    {
+      title: "Logout",
+      receives: {},
+      returns: [types.value("ok")],
+      hasAccess: async () => true,
+    },
+    async (_, res) => {
+      res.cookie("loginToken", "/", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: ms(String(settings.cookie.expireTime) as StringValue),
+      });
+      return "ok" as const;
+    },
+  );
+
+  const getAPIToken = prepare(
     {
       title: "Renew API Token",
       receives: {},
@@ -118,9 +145,34 @@ export const useUserRoutes = (
       ],
       hasAccess: async () => true,
     },
-    async (_, me) => {
-      const apiToken = await me.getAPIToken();
-      return apiToken;
+    async (req) => {
+      const loginCookie = (req.headers.cookie ?? "")
+        .split("; ")
+        .filter((c) => c.startsWith("loginToken="))[0];
+
+      if (!loginCookie) {
+        return new HttpError(401, "Unauthorized");
+      }
+
+      const token = decodeURIComponent(loginCookie.split("=")[1] ?? "");
+      const [email, loginToken] = atob(token).split(":");
+
+      if (!email || !loginToken) {
+        return new HttpError(401, "Unauthorized");
+      }
+
+      // @ts-expect-error 2339
+      const dbs = req.ctx.dbs;
+      try {
+        const me = await new User(dbs).loadOne({ email, token: loginToken });
+        const apiToken = await me.getAPIToken();
+        return apiToken;
+      } catch (e) {
+        if (e instanceof NotFound || e instanceof NotUnique) {
+          return new HttpError(401, "Unauthorized");
+        }
+        throw e;
+      }
     },
   );
 
@@ -149,7 +201,6 @@ export const useUserRoutes = (
       returns: [
         types.obj({
           id: types.string(),
-          loginToken: types.base64(),
           apiToken: types.string(),
         }),
         httpErrorSchema(400, "Nothing to update"),
@@ -192,7 +243,6 @@ export const useUserRoutes = (
       const apiToken = await me.getAPIToken();
       return {
         id: me.content.id,
-        loginToken: me.content.token!,
         apiToken,
       };
     },
@@ -239,5 +289,6 @@ export const useUserRoutes = (
     deleteUser,
     updateUser,
     resetPassword,
+    logout,
   };
 };
