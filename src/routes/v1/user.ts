@@ -10,6 +10,7 @@ import * as types from "@apparts/types";
 import { UserConstructorType } from "model/user";
 import { Mailer } from "types";
 import ms, { StringValue } from "ms";
+import { decodeCookie } from "./cookie";
 
 const UserSettings = getConfig("login-config");
 
@@ -146,20 +147,12 @@ export const useUserRoutes = (
       hasAccess: async () => true,
     },
     async (req) => {
-      const loginCookie = (req.headers.cookie ?? "")
-        .split("; ")
-        .filter((c) => c.startsWith("loginToken="))[0];
+      const cookieContent = decodeCookie(req.headers.cookie ?? "");
 
-      if (!loginCookie) {
+      if (!cookieContent) {
         return new HttpError(401, "Unauthorized");
       }
-
-      const token = decodeURIComponent(loginCookie.split("=")[1] ?? "");
-      const [email, loginToken] = atob(token).split(":");
-
-      if (!email || !loginToken) {
-        return new HttpError(401, "Unauthorized");
-      }
+      const [email, loginToken] = cookieContent;
 
       // @ts-expect-error 2339
       const dbs = req.ctx.dbs;

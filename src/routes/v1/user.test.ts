@@ -269,6 +269,15 @@ describe("getAPIToken", () => {
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
+  test("Invalid token", async () => {
+    const response = await request(app)
+      .get(url("user/apiToken"))
+      .set("Cookie", `loginToken=%2F`);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
+    expect(checkType(response, "getAPIToken")).toBeTruthy();
+  });
+
   test("Success", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)

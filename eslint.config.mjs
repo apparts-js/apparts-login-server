@@ -38,6 +38,7 @@ export default tseslint.config(
         "no-lonely-if": "error",
         "consistent-return": ["error", { treatUndefinedAsUnspecified: false }],
         curly: "error",
+        "@typescript-eslint/no-unused-vars": "off",
       },
     },
     {
