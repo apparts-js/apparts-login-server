@@ -209,17 +209,15 @@ export const useUserRoutes = (
       // @ts-expect-error 2339
       const dbs = req.ctx.dbs;
       const me = new User(dbs);
-
+      let email = "",
+        token = "";
       try {
-        if (cookieContent) {
-          const [email, loginToken] = cookieContent;
-          await me.loadOne({ email });
-          await me.checkAuth(loginToken);
-        } else {
-          const [email, tokenForReset] = basicAuth(req);
-          await me.loadOne({ email });
-          await me.checkAuth(tokenForReset);
+        [email, token] = basicAuth(req);
+        if ((!email || !token) && cookieContent) {
+          [email, token] = cookieContent;
         }
+        await me.loadOne({ email });
+        await me.checkAuth(token);
       } catch (e) {
         return new HttpError(401, "Unauthorized");
       }
