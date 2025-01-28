@@ -601,6 +601,10 @@ describe("alter user", () => {
       id: user.content.id,
       apiToken: jwt("tester@test.de", user.content.id),
     });
+    const setCookie = response.headers["set-cookie"];
+    expect(setCookie).toMatchObject([
+      `loginToken=${getToken(user.content.email, user.content.token!)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
+    ]);
 
     expect(checkType(response2, "updateUser")).toBeTruthy();
   });

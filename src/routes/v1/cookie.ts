@@ -1,3 +1,6 @@
+import { Response } from "express";
+import ms, { StringValue } from "ms";
+
 export const decodeCookie = (cookieStr: string) => {
   const loginCookie = cookieStr
     .split("; ")
@@ -14,4 +17,23 @@ export const decodeCookie = (cookieStr: string) => {
   } catch (_) {
     return false;
   }
+};
+
+export const encodeTokenForCookie = (user: { email: string; token: string }) =>
+  btoa(user.email + ":" + user.token);
+
+export const setCookie = (
+  res: Response,
+  content: string,
+  settings: {
+    allowUnsecure: boolean;
+    expireTime: number;
+  },
+) => {
+  res.cookie("loginToken", content, {
+    httpOnly: true,
+    secure: !settings.allowUnsecure,
+    sameSite: "strict",
+    maxAge: ms(String(settings.expireTime) as StringValue),
+  });
 };

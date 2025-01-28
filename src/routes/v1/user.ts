@@ -10,7 +10,7 @@ import * as types from "@apparts/types";
 import { UserConstructorType } from "model/user";
 import { Mailer } from "types";
 import ms, { StringValue } from "ms";
-import { decodeCookie } from "./cookie";
+import { decodeCookie, encodeTokenForCookie, setCookie } from "./cookie";
 import { basicAuth } from "./../../prepauth/authorizationHeader";
 
 const UserSettings = getConfig("login-config");
@@ -100,16 +100,7 @@ export const useUserRoutes = (
     },
     async (_, me, res) => {
       const apiToken = await me.getAPIToken();
-      res.cookie(
-        "loginToken",
-        btoa(me.content.email + ":" + me.content.token),
-        {
-          httpOnly: true,
-          secure: !settings.cookie.allowUnsecure,
-          sameSite: "strict",
-          maxAge: ms(String(settings.cookie.expireTime) as StringValue),
-        },
-      );
+      setCookie(res, encodeTokenForCookie(me.content), settings.cookie);
       return {
         id: me.content.id,
         apiToken,
@@ -125,12 +116,7 @@ export const useUserRoutes = (
       hasAccess: async () => true,
     },
     async (_, res) => {
-      res.cookie("loginToken", "/", {
-        httpOnly: true,
-        secure: !settings.cookie.allowUnsecure,
-        sameSite: "strict",
-        maxAge: ms(String(settings.cookie.expireTime) as StringValue),
-      });
+      setCookie(res, "/", settings.cookie);
       return "ok" as const;
     },
   );
@@ -203,7 +189,7 @@ export const useUserRoutes = (
       ],
       hasAccess: async () => true,
     },
-    async (req) => {
+    async (req, res) => {
       const cookieContent = decodeCookie(req.headers.cookie ?? "");
 
       // @ts-expect-error 2339
@@ -251,6 +237,7 @@ export const useUserRoutes = (
       me.content.tokenforreset = undefined;
       await me.update();
       const apiToken = await me.getAPIToken();
+      setCookie(res, encodeTokenForCookie(me.content), settings.cookie);
       return {
         id: me.content.id,
         apiToken,
