@@ -11,6 +11,7 @@ import { UserConstructorType } from "model/user";
 import { Mailer } from "types";
 import ms, { StringValue } from "ms";
 import { decodeCookie } from "./cookie";
+import { basicAuth } from "./../../prepauth/authorizationHeader";
 
 const UserSettings = getConfig("login-config");
 
@@ -182,7 +183,7 @@ export const useUserRoutes = (
     },
   );
 
-  const updateUser = prepauthToken(
+  const updateUser = prepare(
     {
       title: "Update a user",
       description: "Currently, only updating the password is supported.",
@@ -197,19 +198,37 @@ export const useUserRoutes = (
           apiToken: types.string(),
         }),
         httpErrorSchema(400, "Nothing to update"),
-        httpErrorSchema(400, "Password required"),
         httpErrorSchema(400, "The new password does not meet all requirements"),
         httpErrorSchema(401, "Unauthorized"),
       ],
       hasAccess: async () => true,
     },
-    async ({ body: { password } }, me) => {
-      if (me.resetTokenUsed) {
-        if (!password) {
-          return new HttpError(400, "Password required");
+    async (req) => {
+      const cookieContent = decodeCookie(req.headers.cookie ?? "");
+
+      // @ts-expect-error 2339
+      const dbs = req.ctx.dbs;
+      const me = new User(dbs);
+
+      try {
+        if (cookieContent) {
+          const [email, loginToken] = cookieContent;
+          await me.loadOne({ email });
+          await me.checkAuth(loginToken);
+        } else {
+          const [email, tokenForReset] = basicAuth(req);
+          await me.loadOne({ email });
+          await me.checkAuth(tokenForReset);
         }
+      } catch (e) {
+        return new HttpError(401, "Unauthorized");
       }
 
+      if (!me.isOne) {
+        return new HttpError(401, "Unauthorized");
+      }
+
+      const { password } = req.body;
       if (!password) {
         return new HttpError(400, "Nothing to update");
       }

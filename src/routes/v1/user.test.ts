@@ -538,14 +538,14 @@ describe("alter user", () => {
     const response = await request(app)
       .put(url("user"))
       .auth("doesnotexist@test.de", "a12345678");
-    expect(response.body).toMatchObject(error("User not found"));
+    expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
   test("Empty email address", async () => {
     const response = await request(app).put(url("user")).auth("", "a12345678");
-    expect(response.body).toMatchObject(error("Authorization wrong"));
-    expect(response.statusCode).toBe(400);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
   test("Wrong auth", async () => {
@@ -560,12 +560,12 @@ describe("alter user", () => {
     const response = await request(app)
       .put(url("user"))
       .auth("tester@test.de", "");
-    expect(response.body).toMatchObject(error("Authorization wrong"));
-    expect(response.statusCode).toBe(400);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
 
-  test("Alter password with loginToken", async () => {
+  test("Alter password with loginToken in cookies", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .get(url("user/login"))
@@ -576,7 +576,10 @@ describe("alter user", () => {
     });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.token!)
+      .set(
+        "Cookie",
+        `loginToken=${getToken(user.content.email, user.content.token!)}`,
+      )
       .send({ password: "jkl123a9a##" });
     expect(response2.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
@@ -675,7 +678,7 @@ describe("alter user", () => {
       .send({});
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
-      error: "Password required",
+      error: "Nothing to update",
     });
     const usernew = await new User(getPool()).loadOne({
       email: "tester@test.de",
