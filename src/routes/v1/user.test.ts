@@ -2,7 +2,6 @@ import request from "supertest";
 import { BaseUsers, userSchema } from "../../model/user";
 import { useModel } from "@apparts/model";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const jestFn = jest.fn;
 const mailObj = {
   sendMail: () => {},

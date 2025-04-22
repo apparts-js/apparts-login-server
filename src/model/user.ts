@@ -42,7 +42,6 @@ export class BaseUsers<
 > extends BaseModel<Schema> {
   resetTokenUsed = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async setExtra(extra) {}
 
   getWelcomeMail() {
