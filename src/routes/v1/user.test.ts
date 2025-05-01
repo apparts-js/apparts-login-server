@@ -4,23 +4,58 @@ import { useModel } from "@apparts/model";
 
 const jestFn = jest.fn;
 const mailObj = {
-  sendMail: () => {},
+  sendMail: () => () => {},
 } as {
-  sendMail: ReturnType<typeof jestFn>;
+  sendMail: () => ReturnType<typeof jestFn>;
+  mock: ReturnType<typeof jestFn>;
 };
 import { addRoutes } from "../";
 import { useUserRoutes } from "./user";
 
-class User extends BaseUsers<typeof userSchema> {}
+class User extends BaseUsers<typeof userSchema> {
+  getWelcomeMail() {
+    return {
+      title: "Willkommen",
+      body: `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
+        this.content.tokenforreset!,
+      )}&email=${encodeURIComponent(this.content.email)}&welcome=true`,
+    };
+  }
+  getResetPWMail() {
+    return {
+      title: "Passwort vergessen?",
+      body: `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
+        this.content.tokenforreset!,
+      )}&email=${encodeURIComponent(this.content.email)}`,
+    };
+  }
+  getEncryptionSettings() {
+    return {
+      passwordHashRounds: 10,
+      cookieTokenLength: 32,
+      webtokenkey: "<change me>",
+      webtokenExpireTime: "10 minutes" as const,
+    };
+  }
+}
 useModel(User, { typeSchema: userSchema, collection: "users" });
 
 import { OtherUsers } from "../../tests/otherUser";
 
 import beTests from "@apparts/backend-test";
 import testConfig from "./tests/config";
+const settings = {
+  Users: User,
+  mail: mailObj as Mailer,
+  cookie: {
+    allowUnsecure: false,
+    expireTime: "365 days" as const,
+  },
+};
+
 const { checkType, allChecked, app, url, error, getPool } = beTests({
   testName: "user",
-  apiContainer: useUserRoutes(User, mailObj as Mailer),
+  apiContainer: useUserRoutes(settings),
   ...testConfig,
 });
 app.use((req, res, next) => {
@@ -28,10 +63,10 @@ app.use((req, res, next) => {
   next();
 });
 
-addRoutes(app, User, mailObj as Mailer);
+addRoutes({ app, ...settings });
 
 const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
-  useUserRoutes(OtherUsers, mailObj as Mailer);
+  useUserRoutes({ ...settings, Users: OtherUsers });
 app.put("/v/1/other/user", updateOtherUser);
 app.get("/v/1/other/user/login", getOtherUserToken);
 
@@ -61,11 +96,12 @@ beforeEach(() => {
     .spyOn(Date, "now")
     .mockImplementation(() => 1575158400000 + 1000 * 60 * 60 * 9.7);
   const mailMock = jest.fn();
-  mailObj.sendMail = mailMock;
+  mailObj.sendMail = () => mailMock;
+  mailObj.mock = mailMock;
 });
 afterEach(() => {
   dateNowAll.mockRestore();
-  mailObj.sendMail.mockRestore();
+  mailObj.mock.mockRestore();
 });
 
 const getToken = (email: string, token: string) =>
@@ -149,7 +185,7 @@ describe("getToken", () => {
         return { tada: 4 };
       }
     }
-    const { getToken } = useUserRoutes(User1, mailObj as Mailer);
+    const { getToken } = useUserRoutes({ ...settings, Users: User1 });
     app.get("/v/1/user1/login", getToken);
 
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
@@ -405,14 +441,14 @@ describe("signup", () => {
     expect(user.content.token).toBeTruthy();
     expect(user.content.tokenforreset).toBeTruthy();
 
-    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
-    expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser@test.de");
-    expect(mailObj.sendMail.mock.calls[0][1]).toBe(
+    expect(mailObj.mock.mock.calls).toHaveLength(1);
+    expect(mailObj.mock.mock.calls[0][0]).toBe("newuser@test.de");
+    expect(mailObj.mock.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
         user.content.tokenforreset!,
       )}&email=newuser%40test.de&welcome=true`,
     );
-    expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
+    expect(mailObj.mock.mock.calls[0][2]).toBe("Willkommen");
   });
   test("Success with extra data", async () => {
     const mockFn = jest.fn();
@@ -422,7 +458,7 @@ describe("signup", () => {
         mockFn(extra);
       }
     }
-    const { addUser } = useUserRoutes(User1, mailObj as Mailer);
+    const { addUser } = useUserRoutes({ ...settings, Users: User1 });
     app.post("/v/1/user2", addUser);
 
     const response = await request(app)
@@ -450,14 +486,14 @@ describe("signup", () => {
       c: [4, 6],
     });
 
-    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
-    expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser2@test.de");
-    expect(mailObj.sendMail.mock.calls[0][1]).toBe(
+    expect(mailObj.mock.mock.calls).toHaveLength(1);
+    expect(mailObj.mock.mock.calls[0][0]).toBe("newuser2@test.de");
+    expect(mailObj.mock.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
         user.content.tokenforreset!,
       )}&email=newuser2%40test.de&welcome=true`,
     );
-    expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
+    expect(mailObj.mock.mock.calls[0][2]).toBe("Willkommen");
   });
 });
 
@@ -521,14 +557,14 @@ describe("reset password", () => {
     expect(user.content.token).toBe(userOld.content.token);
     expect(user.content.tokenforreset).toBeTruthy();
 
-    expect(mailObj.sendMail.mock.calls).toHaveLength(1);
-    expect(mailObj.sendMail.mock.calls[0][0]).toBe("tester@test.de");
-    expect(mailObj.sendMail.mock.calls[0][1]).toBe(
+    expect(mailObj.mock.mock.calls).toHaveLength(1);
+    expect(mailObj.mock.mock.calls[0][0]).toBe("tester@test.de");
+    expect(mailObj.mock.mock.calls[0][1]).toBe(
       `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
         user.content.tokenforreset!,
       )}&email=tester%40test.de`,
     );
-    expect(mailObj.sendMail.mock.calls[0][2]).toBe("Passwort vergessen?");
+    expect(mailObj.mock.mock.calls[0][2]).toBe("Passwort vergessen?");
   });
 });
 

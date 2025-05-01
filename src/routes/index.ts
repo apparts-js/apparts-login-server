@@ -1,7 +1,6 @@
-import { useUserRoutes } from "./v1/user";
 import { Application } from "express";
-import { UserConstructorType } from "../model/user";
-import { Mailer } from "types";
+import { UseUserRoutesProps } from "types";
+import { useUserRoutes } from "./v1/user";
 
 export const addRoutesForUpgrade = (
   app: Application,
@@ -19,11 +18,12 @@ export const addRoutesForUpgrade = (
 };
 
 export const addRoutes = (
-  app: Application,
-  Users: UserConstructorType,
-  mail: Mailer,
-  apiVersion = 1,
+  props: {
+    app: Application;
+    apiVersion?: number;
+  } & UseUserRoutesProps,
 ) => {
+  const { app, apiVersion = 1 } = props;
   const {
     addUser,
     getUser,
@@ -33,7 +33,7 @@ export const addRoutes = (
     updateUser,
     resetPassword,
     logout,
-  } = useUserRoutes(Users, mail);
+  } = useUserRoutes(props);
 
   app.post("/v/" + apiVersion + "/user", addUser);
   app.get("/v/" + apiVersion + "/user/login", getToken);

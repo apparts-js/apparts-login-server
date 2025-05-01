@@ -1,5 +1,8 @@
+import * as types from "@apparts/types";
 import { GenericDBS } from "@apparts/db";
 import { BodyObj, ParamsObj, QueryObj, RequestType } from "@apparts/prep";
+import { StringValue } from "ms";
+import { UserConstructorType } from "model/user";
 
 export type ActualRequestType<
   BodyType extends BodyObj,
@@ -12,5 +15,17 @@ export type ActualRequestType<
 };
 
 export type Mailer = {
-  sendMail: (email: string, body: string, title: string) => Promise<void>;
+  sendMail: (ctx: {
+    dbs: GenericDBS;
+  }) => (email: string, body: string, title: string) => Promise<void>;
+};
+
+export type UseUserRoutesProps = {
+  Users: UserConstructorType;
+  mail: Mailer;
+  extraTypes?: Record<string, types.Type>;
+  cookie: {
+    allowUnsecure: boolean;
+    expireTime: number | StringValue;
+  };
 };

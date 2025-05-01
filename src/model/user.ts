@@ -1,20 +1,11 @@
-import { get as getConfig } from "@apparts/config";
 import { BaseModel } from "@apparts/model";
 import { HttpError } from "@apparts/prep";
 import * as types from "@apparts/types";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import JWT from "jsonwebtoken";
+import ms from "ms";
 import { v7 as uuid } from "uuid";
-
-const UserSettings = getConfig("login-config");
-
-const {
-  apiToken: { webtokenkey, expireTime },
-  welcomeMail,
-  resetMail,
-  resetUrl,
-} = UserSettings;
 
 export const userSchema = types.obj({
   id: types
@@ -37,38 +28,21 @@ export const userSchema = types.obj({
 
 export type UserType = types.InferType<typeof userSchema>;
 
-export class BaseUsers<
+export abstract class BaseUsers<
   Schema extends typeof userSchema,
 > extends BaseModel<Schema> {
   resetTokenUsed = false;
 
-  async setExtra(extra) {}
+  async setExtra(_extra: unknown) {}
 
-  getWelcomeMail() {
-    return {
-      title: welcomeMail.title,
-      body: welcomeMail.body.replace(
-        /##URL##/g,
-        resetUrl +
-          `?token=${encodeURIComponent(
-            this.content.tokenforreset!,
-          )}&email=${encodeURIComponent(this.content.email)}&welcome=true`,
-      ),
-    };
-  }
-
-  getResetPWMail() {
-    return {
-      title: resetMail.title,
-      body: resetMail.body.replace(
-        /##URL##/g,
-        resetUrl +
-          `?token=${encodeURIComponent(
-            this.content.tokenforreset!,
-          )}&email=${encodeURIComponent(this.content.email)}`,
-      ),
-    };
-  }
+  abstract getWelcomeMail(): { title: string; body: string };
+  abstract getResetPWMail(): { title: string; body: string };
+  abstract getEncryptionSettings(): {
+    passwordHashRounds: number;
+    cookieTokenLength: number;
+    webtokenkey: string;
+    webtokenExpireTime: number | ms.StringValue;
+  };
 
   async _checkToken(token: string) {
     if (
@@ -106,22 +80,28 @@ export class BaseUsers<
   }
 
   async setPw(password: string) {
-    const hash = await bcrypt.hash(password, UserSettings.pwHashRounds);
+    const hash = await bcrypt.hash(
+      password,
+      this.getEncryptionSettings().passwordHashRounds,
+    );
     this.content.hash = hash;
     return this;
   }
 
   genToken() {
     return new Promise((res) => {
-      crypto.randomBytes(UserSettings.tokenLength, (err, token) => {
-        /* istanbul ignore if */
-        if (err) {
-          throw "[User] Could not generate Token, E33" + err;
-        } else {
-          this.content.token = token.toString("base64");
-          res(this);
-        }
-      });
+      crypto.randomBytes(
+        this.getEncryptionSettings().cookieTokenLength,
+        (err, token) => {
+          /* istanbul ignore if */
+          if (err) {
+            throw "[User] Could not generate Token, E33" + err;
+          } else {
+            this.content.token = token.toString("base64");
+            res(this);
+          }
+        },
+      );
     });
   }
 
@@ -153,8 +133,8 @@ export class BaseUsers<
       ...extra,
       ...extraDynamicContent,
     };
-    return JWT.sign(payload, webtokenkey, {
-      expiresIn: expireTime,
+    return JWT.sign(payload, this.getEncryptionSettings().webtokenkey, {
+      expiresIn: this.getEncryptionSettings().webtokenExpireTime,
       ...extraJWTOptions,
     });
   }
@@ -166,23 +146,6 @@ export class BaseUsers<
     await this.update();
   }
 }
-
-// export const createUserModel = <T extends Keys>(
-//   inputSchema: T,
-//   collectionName = "users",
-// ) => {
-//   const schema = types.obj({
-//     ...userSchema.getKeys(),
-//     ...inputSchema,
-//   });
-
-//   const UsersBase = useModel({
-//     typeSchema: schema,
-//     collection: collectionName,
-//   });
-
-//   return Users;
-// };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UserConstructorType = new (...ps: any[]) => BaseUsers<any>;

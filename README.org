@@ -20,25 +20,51 @@
 
 
      export class Users extends BaseUsers<typeof userSchema> {
-       // your custom methods here
+       getWelcomeMail() {
+         return {
+           title: "Willkommen",
+           body: `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
+             this.content.tokenforreset!,
+           )}&email=${encodeURIComponent(this.content.email)}&welcome=true`,
+         };
+       }
+       getResetPWMail() {
+         return {
+           title: "Passwort vergessen?",
+           body: `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
+             this.content.tokenforreset!,
+           )}&email=${encodeURIComponent(this.content.email)}`,
+         };
+       }
+       getEncryptionSettings() {
+         return {
+           passwordHashRounds: 10,
+           cookieTokenLength: 32,
+           webtokenkey: "<change me>",
+           webtokenExpireTime: "10 minutes" as const,
+         };
+       }
      }
-     useModel(OtherUsers, { typeSchema: userSchema, collection: "users" });
+     useModel(Users, { typeSchema: userSchema, collection: "users" });
 
      const app = express();
      // ...
 
      const mail = {
-       async sendMail(to, body, title){
+       async sendMail: (dbs) => (to, body, title) => {
          //   ...
        }
      };
-     addUserRoutes(app, User, mail);
+     addUserRoutes({ app, Users, mail, cookie: {
+       allowUnsecure: false,
+       expireTime: "365 days" as const,
+     }});
      // ...
    #+END_SRC
    - If you need to specify the route version by yourself:
      #+BEGIN_SRC js
        const newApiVersion = 2;
-       addRoutes(app, User, mail, newApiVersion);
+       addRoutes({ app, User, mail, cookie, apiVersion: newApiVersion });
        // routes will start with /v/2/...
 
        const oldApiVersion = 1;
@@ -60,7 +86,10 @@
                 updateUser,
                 resetPassword,
                 logout
-                } = useUserRoutes(User, mail);
+             } = useUserRoutes({ User, mail, cookie: {
+               allowUnsecure: false,
+               expireTime: "365 days" as const,
+             }});
 
        // E.g.:
        app.post("/v/1/user", addUser);
@@ -83,44 +112,35 @@ type Context = { dbs: GenericDBS };
 #+END_SRC
 
 
-The configuration options for this component have to be stored
-accessible by the =apparts-config=-module through the name =login-config=.
-They are:
-- ~pwHashRounds {int}~ :: Amount of hash-rounds for password
-     storing, passend on to =bcrypt=
-- ~tokenLength {int}~ :: Length of login-token
-- ~welcomeMail {object}~ :: The object should have keys ~title~ and
-  ~body~. Within both, all occurrences of the string "##NAME##" will
-  be replaced with the users name. In the body, all occurences of the
-  string "##URL##" will be replaced with a URL for setting the
-  password and thus confirming the email address.
-- ~resetPWMail {object}~ :: The object should have keys ~title~ and
-  ~body~. Within both, all occurrences of the string "##NAME##" will
-  be replaced with the users name. In the body, all occurences of the
-  string "##URL##" will be replaced with a URL for resetting the
-  password.
-- ~resetUrl {string}~ :: The URL, that will be send emails for setting
-  and resetting passwords. Appended query parameters:
-  - ~token {string}~ :: An auth token
-  - ~?welcome {bool}~ :: Set to true, if this is not from a password
-    reset mail, but from a welcome mail.
+The configuration options as passed to the =addRoutes= or =useUserRoutes=
+functions are:
 - ~extraTypes {?object}~ :: An optional object that contains type
   definitions as expected by the preperator of [[https://github.com/phuhl/apparts-types#usage][@apparts/types]]. Will be
   injected into the ~body~-type definitions of ~POST /v/1/user~ and
   can be used to validate extra parameters on user creation. These
   extra parameters will be passed to the ~setExtra~ function (see
   [[Overwriting the User-model]]).
-- apiToken {object} :: Configuration regarding the api token
-  - webtokenkey {string} :: The encryption key of the JWT.
-  - expireTime {string} :: The expiration time of the JWT as described
-    by [[https://github.com/vercel/ms][vercel/ms]].
 - cookie  :: Configuration regarding the cooke wich is used to store
   the login token.
   - expireTime {string} :: The expiration time of the cookie as described
     by [[https://github.com/vercel/ms][vercel/ms]].
   - allowUnsecure {boolean} = false :: Allow setting cookies on
     non-https URLs. For more info, see [[https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#secure][Set-Cookie#Secure]].
-  
+
+
+Additionally, when overwriting the =BaseUser= class, some abstract
+functions must be defined. These are:
+- =getWelcomeMail()= :: Returns an object, which has keys ~title~ and
+  ~body~.
+- =getResetPWMail()= :: Returns an object, which has keys ~title~ and
+  ~body~.
+- =getEncryptionSettings()= :: Returns an object with the following keys:
+  - webtokenkey {string} :: The encryption key of the JWT.
+  - webtokenExpireTime {string} :: The expiration time of the JWT as described
+    by [[https://github.com/vercel/ms][vercel/ms]].
+  - ~passwordHashRounds {int}~ :: Amount of hash-rounds for password
+       storing, passend on to =bcrypt=
+  - ~cookieTokenLength {int}~ :: Length of login-token
 
 *** Defining password policies
 
@@ -182,6 +202,7 @@ called on the OneModel of the user, thus only the ~User~ has to be
 extended, not the ~Users~ or ~NoUser~ classes. The functions,
 explicitly intended for overwriting:
 
+- =getEncryptionSettings() {object}= :: As described under Configuration.
 - ~getWelcomeMail() {object}~ :: Returns the content of a welcome
   email that is send after registration. The function returns an
   object of the form ~{ title: {string}, body: {string}}~. The
@@ -189,16 +210,13 @@ explicitly intended for overwriting:
   link with the reset token. Default implementation:
   #+BEGIN_SRC js
     getWelcomeMail() {
-      return {
-        title: welcomeMail.title,
-        body: welcomeMail.body
-          .replace(
-            /##URL##/g,
-            resetUrl +
+      const resetUrl = resetPath +
               `?token=${encodeURIComponent(
                 this.content.tokenforreset
-              )}&email=${encodeURIComponent(this.content.email)}&welcome=true`
-          ),
+              )}&email=${encodeURIComponent(this.content.email)}&welcome=true`;
+      return {
+        title: "Your Title",
+        body: "Your body with <resetUrl> in it"
       };
     }
   #+END_SRC
@@ -209,15 +227,13 @@ explicitly intended for overwriting:
   token. Default implementation:
   #+BEGIN_SRC js
     getResetPWMail() {
-      return {
-        title: resetMail.title,
-        body: resetMail.body.replace(
-          /##URL##/g,
-          resetUrl +
-            `?token=${encodeURIComponent(
+      const resetUrl = resetPath + `?token=${encodeURIComponent(
                   this.content.tokenforreset
                 )}&email=${encodeURIComponent(this.content.email)}`
-        ),
+
+      return {
+        title: "Your title",
+        body: "Your body with <resetUrl> in it",
       };
     }
   #+END_SRC

@@ -27,7 +27,7 @@ export const setCookie = (
   content: string,
   settings: {
     allowUnsecure: boolean;
-    expireTime: number;
+    expireTime: number | StringValue;
   },
 ) => {
   res.cookie("loginToken", content, {

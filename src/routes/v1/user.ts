@@ -1,19 +1,15 @@
-import { prepare, HttpError, httpErrorSchema } from "@apparts/prep";
+import { NotFound, NotUnique } from "@apparts/model";
+import { HttpError, httpErrorSchema, prepare } from "@apparts/prep";
+import * as types from "@apparts/types";
+import { UserConstructorType } from "model/user";
+import { UseUserRoutesProps } from "types";
+import { PasswordNotValidError } from "../../errors";
 import {
   prepauthPW as prepauthPW_,
   prepauthToken as prepauthToken_,
 } from "../../prepauth";
-import { NotFound, NotUnique } from "@apparts/model";
-import { get as getConfig } from "@apparts/config";
-import { PasswordNotValidError } from "../../errors";
-import * as types from "@apparts/types";
-import { UserConstructorType } from "model/user";
-import { Mailer } from "types";
-import ms, { StringValue } from "ms";
-import { decodeCookie, encodeTokenForCookie, setCookie } from "./cookie";
 import { basicAuth } from "./../../prepauth/authorizationHeader";
-
-const UserSettings = getConfig("login-config");
+import { decodeCookie, encodeTokenForCookie, setCookie } from "./cookie";
 
 const makeFakeSchema = (type) =>
   ({
@@ -26,11 +22,9 @@ const makeFakeSchema = (type) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as types.Obj<any, any>;
 
-export const useUserRoutes = (
-  User: UserConstructorType,
-  mail: Mailer,
-  settings = UserSettings,
-) => {
+export const useUserRoutes = (props: UseUserRoutesProps) => {
+  const { Users: User, mail, cookie, extraTypes } = props;
+
   const prepauthPW = prepauthPW_(User);
   const prepauthToken = prepauthToken_(User);
   const addUser = prepare(
@@ -39,15 +33,15 @@ export const useUserRoutes = (
       receives: {
         body: makeFakeSchema({
           email: { type: "email" },
-          ...settings.extraTypes,
+          ...extraTypes,
         }),
       },
       returns: [types.value("ok"), httpErrorSchema(413, "User exists")],
       hasAccess: async () => true,
     },
     // @ts-expect-error 2339
-    async ({ ctx: { dbs }, body: { email, ...extra } }) => {
-      const me = new User(dbs, [
+    async ({ ctx, body: { email, ...extra } }) => {
+      const me = new User(ctx.dbs, [
         {
           email: email.toLowerCase(),
         },
@@ -64,7 +58,7 @@ export const useUserRoutes = (
         throw e;
       }
       const { title, body } = me.getWelcomeMail();
-      await mail.sendMail(email, body, title);
+      await mail.sendMail(ctx)(email, body, title);
       return "ok";
     },
   );
@@ -100,7 +94,7 @@ export const useUserRoutes = (
     },
     async (_, me, res) => {
       const apiToken = await me.getAPIToken();
-      setCookie(res, encodeTokenForCookie(me.content), settings.cookie);
+      setCookie(res, encodeTokenForCookie(me.content), cookie);
       return {
         id: me.content.id,
         apiToken,
@@ -116,7 +110,7 @@ export const useUserRoutes = (
       hasAccess: async () => true,
     },
     async (_, res) => {
-      setCookie(res, "/", settings.cookie);
+      setCookie(res, "/", cookie);
       return "ok" as const;
     },
   );
@@ -237,7 +231,7 @@ export const useUserRoutes = (
       me.content.tokenforreset = undefined;
       await me.update();
       const apiToken = await me.getAPIToken();
-      setCookie(res, encodeTokenForCookie(me.content), settings.cookie);
+      setCookie(res, encodeTokenForCookie(me.content), cookie);
       return {
         id: me.content.id,
         apiToken,
@@ -257,8 +251,8 @@ export const useUserRoutes = (
       hasAccess: async () => true,
     },
     // @ts-expect-error 2339
-    async ({ ctx: { dbs }, params: { email } }) => {
-      const me = new User(dbs);
+    async ({ ctx, params: { email } }) => {
+      const me = new User(ctx.dbs);
       try {
         await me.loadOne({ email: email.toLowerCase(), deleted: false });
       } catch (e) {
@@ -272,7 +266,7 @@ export const useUserRoutes = (
       await me.update();
 
       const { title, body } = me.getResetPWMail();
-      await mail.sendMail(email, body, title);
+      await mail.sendMail(ctx)(email, body, title);
 
       return "ok";
     },
