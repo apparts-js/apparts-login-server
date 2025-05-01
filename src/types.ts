@@ -14,10 +14,8 @@ export type ActualRequestType<
   };
 };
 
-export type Mailer = {
-  sendMail: (ctx: {
-    dbs: GenericDBS;
-  }) => (email: string, body: string, title: string) => Promise<void>;
+export type Mailer = (ctx: { dbs: GenericDBS }) => {
+  sendMail: (email: string, body: string, title: string) => Promise<void>;
 };
 
 export type UseUserRoutesProps = {

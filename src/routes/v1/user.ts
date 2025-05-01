@@ -58,7 +58,7 @@ export const useUserRoutes = (props: UseUserRoutesProps) => {
         throw e;
       }
       const { title, body } = me.getWelcomeMail();
-      await mail.sendMail(ctx)(email, body, title);
+      await mail(ctx).sendMail(email, body, title);
       return "ok";
     },
   );
@@ -266,7 +266,7 @@ export const useUserRoutes = (props: UseUserRoutesProps) => {
       await me.update();
 
       const { title, body } = me.getResetPWMail();
-      await mail.sendMail(ctx)(email, body, title);
+      await mail(ctx).sendMail(email, body, title);
 
       return "ok";
     },

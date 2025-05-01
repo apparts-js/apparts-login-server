@@ -50,11 +50,11 @@
      const app = express();
      // ...
 
-     const mail = {
-       async sendMail: (dbs) => (to, body, title) => {
+     const mail = (dbs) => ({
+       async sendMail: (to, body, title) => {
          //   ...
        }
-     };
+     });
      addUserRoutes({ app, Users, mail, cookie: {
        allowUnsecure: false,
        expireTime: "365 days" as const,
