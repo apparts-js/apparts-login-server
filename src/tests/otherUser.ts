@@ -11,6 +11,27 @@ import { useModel } from "@apparts/model";
 export class Logins extends BaseLogins<typeof loginSchema> {}
 
 export class OtherUsers extends BaseUsers<typeof userSchema> {
+  getWelcomeMail() {
+    return {
+      title: "Willkommen",
+      body: "",
+    };
+  }
+  getResetPWMail() {
+    return {
+      title: "Passwort vergessen?",
+      body: "",
+    };
+  }
+  getEncryptionSettings() {
+    return {
+      passwordHashRounds: 10,
+      cookieTokenLength: 32,
+      webtokenkey: "<change me>",
+      webtokenExpireTime: "10 minutes" as const,
+    };
+  }
+
   async setPw(password: string) {
     if (password.length < 10) {
       throw new PasswordNotValidError("Password must be 10+ characters");

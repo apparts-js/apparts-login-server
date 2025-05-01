@@ -7,7 +7,28 @@ const fakeDbs = {} as GenericDBS;
 
 describe("user model", () => {
   it("should createUserModel", () => {
-    class Users extends BaseUsers<typeof userSchema> {}
+    class Users extends BaseUsers<typeof userSchema> {
+      getWelcomeMail() {
+        return {
+          title: "Willkommen",
+          body: "",
+        };
+      }
+      getResetPWMail() {
+        return {
+          title: "Passwort vergessen?",
+          body: "",
+        };
+      }
+      getEncryptionSettings() {
+        return {
+          passwordHashRounds: 10,
+          cookieTokenLength: 32,
+          webtokenkey: "<change me>",
+          webtokenExpireTime: "10 minutes" as const,
+        };
+      }
+    }
     useModel(Users, { typeSchema: userSchema, collection: "users" });
 
     const u = new Users(fakeDbs, [{ email: "test@test.de" }]);
@@ -24,7 +45,28 @@ describe("user model", () => {
       permissions: types.obj({}),
     });
 
-    class Users extends BaseUsers<typeof customUserSchema> {}
+    class Users extends BaseUsers<typeof customUserSchema> {
+      getWelcomeMail() {
+        return {
+          title: "Willkommen",
+          body: "",
+        };
+      }
+      getResetPWMail() {
+        return {
+          title: "Passwort vergessen?",
+          body: "",
+        };
+      }
+      getEncryptionSettings() {
+        return {
+          passwordHashRounds: 10,
+          cookieTokenLength: 32,
+          webtokenkey: "<change me>",
+          webtokenExpireTime: "10 minutes" as const,
+        };
+      }
+    }
     useModel(Users, { typeSchema: customUserSchema, collection: "users" });
 
     const u = new Users(fakeDbs, [{ email: "test@test.de", lastName: "test" }]);
