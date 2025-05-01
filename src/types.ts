@@ -2,7 +2,7 @@ import * as types from "@apparts/types";
 import { GenericDBS } from "@apparts/db";
 import { BodyObj, ParamsObj, QueryObj, RequestType } from "@apparts/prep";
 import { StringValue } from "ms";
-import { UserConstructorType } from "model/user";
+import { UserConstructorType } from "./model/user";
 
 export type ActualRequestType<
   BodyType extends BodyObj,

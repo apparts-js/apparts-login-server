@@ -1,5 +1,5 @@
 import { Application } from "express";
-import { UseUserRoutesProps } from "types";
+import { UseUserRoutesProps } from "../types";
 import { useUserRoutes } from "./v1/user";
 
 export const addRoutesForUpgrade = (

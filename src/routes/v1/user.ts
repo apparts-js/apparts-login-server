@@ -2,7 +2,7 @@ import { NotFound, NotUnique } from "@apparts/model";
 import { HttpError, httpErrorSchema, prepare } from "@apparts/prep";
 import * as types from "@apparts/types";
 import { UserConstructorType } from "model/user";
-import { UseUserRoutesProps } from "types";
+import { UseUserRoutesProps } from "../../types";
 import { PasswordNotValidError } from "../../errors";
 import {
   prepauthPW as prepauthPW_,
