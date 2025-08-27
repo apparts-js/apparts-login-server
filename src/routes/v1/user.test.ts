@@ -30,7 +30,7 @@ class User extends BaseUsers<typeof userSchema> {
   }
   getEncryptionSettings() {
     return {
-      passwordHashRounds: 10,
+      passwordSaltLength: 10,
       cookieTokenLength: 32,
       webtokenkey: "<change me>",
       webtokenExpireTime: "10 minutes" as const,

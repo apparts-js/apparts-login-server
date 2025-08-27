@@ -39,7 +39,7 @@ export abstract class BaseUsers<
   abstract getWelcomeMail(): { title: string; body: string };
   abstract getResetPWMail(): { title: string; body: string };
   abstract getEncryptionSettings(): {
-    passwordHashRounds: number;
+    passwordSaltLength: number;
     cookieTokenLength: number;
     webtokenkey: string;
     webtokenExpireTime: number | ms.StringValue;
@@ -87,7 +87,7 @@ export abstract class BaseUsers<
   async setPw(password: string) {
     const hash = await bcrypt.hash(
       password,
-      this.getEncryptionSettings().passwordHashRounds,
+      this.getEncryptionSettings().passwordSaltLength,
     );
     this.content.hash = hash;
     return this;
