@@ -10,7 +10,7 @@ import { v7 as uuid } from "uuid";
 export const userSchema = types.obj({
   id: types
     .string()
-    // .semantic("id")
+    .semantic("id")
     .public()
     .default(() => uuid())
     .key(),
