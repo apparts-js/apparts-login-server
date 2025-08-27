@@ -34,6 +34,8 @@ class User extends BaseUsers<typeof userSchema> {
       cookieTokenLength: 32,
       webtokenkey: "<change me>",
       webtokenExpireTime: "10 minutes" as const,
+      resettokenLength: 32,
+      resettokenExpireTime: "1 hour" as const,
     };
   }
 }
@@ -597,7 +599,26 @@ describe("alter user", () => {
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
-
+  test("Missing auth", async () => {
+    const response = await request(app).put(url("user"));
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
+    expect(checkType(response, "updateUser")).toBeTruthy();
+  });
+  test("Expired reset token", async () => {
+    jest
+      .spyOn(Date, "now")
+      .mockImplementationOnce(
+        () => 1575158400000 + 1000 * 60 * 60 * 9.7 + 61 * 60 * 1000,
+      );
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const response = await request(app)
+      .put(url("user"))
+      .auth("tester@test.de", user.content.tokenforreset!);
+    expect(response.body).toMatchObject(error("Unauthorized"));
+    expect(response.statusCode).toBe(401);
+    expect(checkType(response, "updateUser")).toBeTruthy();
+  });
   test("Alter password with loginToken in cookies", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
@@ -645,23 +666,35 @@ describe("alter user", () => {
   test("Alter password with resetToken", async () => {
     await request(app).post(url("user/tester@test.de/reset"));
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
-    const response2 = await request(app)
+    const resetToken = user.content.tokenforreset!;
+    const response = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.tokenforreset!)
+      .auth("tester@test.de", resetToken)
       .send({ password: "?aoRisetn39!!" });
-    expect(response2.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
       email: "tester@test.de",
     });
     expect(usernew.content.token === user.content.token).toBeFalsy();
-    expect(response2.body).toMatchObject({
+    expect(response.body).toMatchObject({
       id: user.content.id,
       apiToken: jwt("tester@test.de", user.content.id),
     });
+
+    // reset token is single use
+    const response2 = await request(app)
+      .put(url("user"))
+      .auth("tester@test.de", resetToken)
+      .send({ password: "?aoRisetn39!!" });
+    expect(response2.statusCode).toBe(401);
+
+    // old password does not work
     const response3 = await request(app)
       .get(url("user/login"))
       .auth("tester@test.de", "jkl123a9a##");
     expect(response3.statusCode).toBe(401);
+
+    // new password works
     const response4 = await request(app)
       .get(url("user/login"))
       .auth("tester@test.de", "?aoRisetn39!!");
@@ -670,7 +703,7 @@ describe("alter user", () => {
       apiToken: jwt("tester@test.de", user.content.id),
     });
 
-    expect(checkType(response2, "updateUser")).toBeTruthy();
+    expect(checkType(response, "updateUser")).toBeTruthy();
   });
 
   test("Refuses to alter password if password does not meet requirements", async () => {

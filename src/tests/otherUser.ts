@@ -29,6 +29,8 @@ export class OtherUsers extends BaseUsers<typeof userSchema> {
       cookieTokenLength: 32,
       webtokenkey: "<change me>",
       webtokenExpireTime: "10 minutes" as const,
+      resettokenLength: 32,
+      resettokenExpireTime: "1 hour" as const,
     };
   }
 

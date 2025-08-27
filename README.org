@@ -42,6 +42,8 @@
            cookieTokenLength: 32,
            webtokenkey: "<change me>",
            webtokenExpireTime: "10 minutes" as const,
+           resettokenLength: 32,
+           resettokenExpireTime: "12 hours" as const,
          };
        }
      }
@@ -136,11 +138,14 @@ functions must be defined. These are:
   ~body~.
 - =getEncryptionSettings()= :: Returns an object with the following keys:
   - webtokenkey {string} :: The encryption key of the JWT.
-  - webtokenExpireTime {string} :: The expiration time of the JWT as described
-    by [[https://github.com/vercel/ms][vercel/ms]].
+  - webtokenExpireTime {int|string} :: The expiration time of the JWT
+    in the format as described by [[https://github.com/vercel/ms][vercel/ms]].
   - ~passwordHashRounds {int}~ :: Amount of hash-rounds for password
        storing, passend on to =bcrypt=
   - ~cookieTokenLength {int}~ :: Length of login-token
+  - resettokenLength {int} :: Lenght of reset-token
+  - resettokenExpireTime {int|string} :: The expiration time of the
+    reset token in the format as described by [[https://github.com/vercel/ms][vercel/ms]].
 
 *** Defining password policies
 

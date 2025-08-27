@@ -4,6 +4,7 @@ CREATE TABLE users (
        email VARCHAR(128) UNIQUE NOT NULL,
        token VARCHAR(64),
        tokenForReset VARCHAR(64),
+       tokenforresetExpiry BIGINT,
        hash CHAR(60),
        deleted BOOL NOT NULL,
        createdOn BIGINT NOT NULL

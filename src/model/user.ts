@@ -17,6 +17,7 @@ export const userSchema = types.obj({
   email: types.email().public(),
   token: types.base64().optional(),
   tokenforreset: types.base64().optional(),
+  tokenforresetexpiry: types.int().semantic("date").optional(),
   hash: types.any().optional(),
   deleted: types.boolean().default(false),
   createdon: types
@@ -42,13 +43,17 @@ export abstract class BaseUsers<
     cookieTokenLength: number;
     webtokenkey: string;
     webtokenExpireTime: number | ms.StringValue;
+    resettokenLength: number;
+    resettokenExpireTime: number | ms.StringValue;
   };
 
   async _checkToken(token: string) {
-    if (
-      !token ||
-      (token !== this.content.token && token !== this.content.tokenforreset)
-    ) {
+    const isValidToken = token && token === this.content.token;
+    const isValidResetToken =
+      token &&
+      token === this.content.tokenforreset &&
+      (this.content.tokenforresetexpiry || 0) > Date.now();
+    if (!isValidToken && !isValidResetToken) {
       throw new HttpError(401, "Unauthorized");
     }
     if (this.content.tokenforreset) {
@@ -88,20 +93,23 @@ export abstract class BaseUsers<
     return this;
   }
 
-  genToken() {
-    return new Promise((res) => {
-      crypto.randomBytes(
-        this.getEncryptionSettings().cookieTokenLength,
-        (err, token) => {
-          /* istanbul ignore if */
-          if (err) {
-            throw "[User] Could not generate Token, E33" + err;
-          } else {
-            this.content.token = token.toString("base64");
-            res(this);
-          }
-        },
-      );
+  async genToken() {
+    const token = await this.genSecureStr(
+      this.getEncryptionSettings().cookieTokenLength,
+    );
+    this.content.token = token;
+    return this;
+  }
+
+  private async genSecureStr(length: number) {
+    return new Promise<string>((res) => {
+      crypto.randomBytes(length, (err, token) => {
+        if (err) {
+          throw "[User] Could not generate Token, E33" + err;
+        } else {
+          res(token.toString("base64"));
+        }
+      });
     });
   }
 
@@ -111,10 +119,14 @@ export abstract class BaseUsers<
   }
 
   async genResetToken() {
-    const oldToken = this.content.token;
-    await this.genToken();
-    this.content.tokenforreset = this.content.token;
-    this.content.token = oldToken;
+    const { resettokenLength, resettokenExpireTime } =
+      this.getEncryptionSettings();
+    this.content.tokenforreset = await this.genSecureStr(resettokenLength);
+    this.content.tokenforresetexpiry =
+      Date.now() +
+      (typeof resettokenExpireTime === "number"
+        ? resettokenExpireTime
+        : ms(resettokenExpireTime));
   }
 
   async getExtraAPITokenContent() {
