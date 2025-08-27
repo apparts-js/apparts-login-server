@@ -22,7 +22,7 @@ describe("user model", () => {
       }
       getEncryptionSettings() {
         return {
-          passwordHashRounds: 10,
+          passwordSaltLength: 10,
           cookieTokenLength: 32,
           webtokenkey: "<change me>",
           webtokenExpireTime: "10 minutes" as const,
@@ -62,10 +62,12 @@ describe("user model", () => {
       }
       getEncryptionSettings() {
         return {
-          passwordHashRounds: 10,
+          passwordSaltLength: 10,
           cookieTokenLength: 32,
           webtokenkey: "<change me>",
           webtokenExpireTime: "10 minutes" as const,
+          resettokenLength: 32,
+          resettokenExpireTime: "1 hour" as const,
         };
       }
     }

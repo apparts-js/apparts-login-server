@@ -1,6 +1,9 @@
-import request from "supertest";
-import { BaseUsers, userSchema } from "../../model/user";
 import { useModel } from "@apparts/model";
+import { BaseLogins, loginSchema } from "../../model/logins";
+import request from "supertest";
+import { addRoutes } from "../";
+import { BaseUsers, userSchema } from "../../model/user";
+import { useUserRoutes } from "./user";
 
 const jestFn = jest.fn;
 const mailObj = {
@@ -8,15 +11,13 @@ const mailObj = {
 } as {
   sendMail: ReturnType<typeof jestFn>;
 };
-import { addRoutes } from "../";
-import { useUserRoutes } from "./user";
 
 class User extends BaseUsers<typeof userSchema> {
   getWelcomeMail() {
     return {
       title: "Willkommen",
       body: `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        this.content.tokenforreset!,
+        this.content.tokenForReset!,
       )}&email=${encodeURIComponent(this.content.email)}&welcome=true`,
     };
   }
@@ -24,7 +25,7 @@ class User extends BaseUsers<typeof userSchema> {
     return {
       title: "Passwort vergessen?",
       body: `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
-        this.content.tokenforreset!,
+        this.content.tokenForReset!,
       )}&email=${encodeURIComponent(this.content.email)}`,
     };
   }
@@ -39,7 +40,9 @@ class User extends BaseUsers<typeof userSchema> {
     };
   }
 }
-useModel(User, { typeSchema: userSchema, collection: "users" });
+useModel(User, { typeSchema: userSchema, collection: "user" });
+
+useModel(BaseLogins, { typeSchema: loginSchema, collection: "login" });
 
 import { OtherUsers } from "../../tests/otherUser";
 
@@ -442,15 +445,15 @@ describe("signup", () => {
       email: "newuser@test.de",
     });
     expect(user.content.email).toBe("newuser@test.de");
-    expect(user.content.createdon).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
+    expect(user.content.created).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
     expect(user.content.token).toBeTruthy();
-    expect(user.content.tokenforreset).toBeTruthy();
+    expect(user.content.tokenForReset).toBeTruthy();
 
     expect(mailObj.sendMail.mock.calls).toHaveLength(1);
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset!,
+        user.content.tokenForReset!,
       )}&email=newuser%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
@@ -481,9 +484,9 @@ describe("signup", () => {
       email: "newuser2@test.de",
     });
     expect(user.content.email).toBe("newuser2@test.de");
-    expect(user.content.createdon).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
+    expect(user.content.created).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
     expect(user.content.token).toBeTruthy();
-    expect(user.content.tokenforreset).toBeTruthy();
+    expect(user.content.tokenForReset).toBeTruthy();
     expect(mockFn.mock.calls).toHaveLength(1);
     expect(mockFn.mock.calls[0][0]).toMatchObject({
       a: 3,
@@ -495,7 +498,7 @@ describe("signup", () => {
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("newuser2@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Bitte bestätige deine Email: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset!,
+        user.content.tokenForReset!,
       )}&email=newuser2%40test.de&welcome=true`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Willkommen");
@@ -535,7 +538,7 @@ describe("get user", () => {
     expect(response.body).toMatchObject({
       email: "tester@test.de",
       id: user.content.id,
-      createdon: 1575158400000 + 1000 * 60 * 60 * 9.7,
+      created: 1575158400000 + 1000 * 60 * 60 * 9.7,
     });
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getUser")).toBeTruthy();
@@ -562,13 +565,13 @@ describe("reset password", () => {
     expect(checkType(response, "resetPassword")).toBeTruthy();
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     expect(user.content.token).toBe(userOld.content.token);
-    expect(user.content.tokenforreset).toBeTruthy();
+    expect(user.content.tokenForReset).toBeTruthy();
 
     expect(mailObj.sendMail.mock.calls).toHaveLength(1);
     expect(mailObj.sendMail.mock.calls[0][0]).toBe("tester@test.de");
     expect(mailObj.sendMail.mock.calls[0][1]).toBe(
       `Hier kannst du dein Passwort ändern: https://apparts.com/reset?token=${encodeURIComponent(
-        user.content.tokenforreset!,
+        user.content.tokenForReset!,
       )}&email=tester%40test.de`,
     );
     expect(mailObj.sendMail.mock.calls[0][2]).toBe("Passwort vergessen?");
@@ -621,7 +624,7 @@ describe("alter user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.tokenforreset!);
+      .auth("tester@test.de", user.content.tokenForReset!);
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "updateUser")).toBeTruthy();
@@ -673,7 +676,7 @@ describe("alter user", () => {
   test("Alter password with resetToken", async () => {
     await request(app).post(url("user/tester@test.de/reset"));
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
-    const resetToken = user.content.tokenforreset!;
+    const resetToken = user.content.tokenForReset!;
     const response = await request(app)
       .put(url("user"))
       .auth("tester@test.de", resetToken)
@@ -719,7 +722,7 @@ describe("alter user", () => {
 
     const response2 = await request(app)
       .put(url("other/user"))
-      .auth("tester@test.de", user.content.tokenforreset!)
+      .auth("tester@test.de", user.content.tokenForReset!)
       .send({ password: "?aoR!!" });
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -751,7 +754,7 @@ describe("alter user", () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.tokenforreset!)
+      .auth("tester@test.de", user.content.tokenForReset!)
       .send({});
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -762,7 +765,7 @@ describe("alter user", () => {
     });
     expect(usernew.content).toMatchObject({
       ...user.content,
-      tokenforreset: null,
+      tokenForReset: null,
     });
 
     expect(checkType(response2, "updateUser")).toBeTruthy();

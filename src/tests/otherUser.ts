@@ -55,4 +55,4 @@ export class OtherUsers extends BaseUsers<typeof userSchema> {
     return this;
   }
 }
-useModel(OtherUsers, { typeSchema: userSchema, collection: "users" });
+useModel(OtherUsers, { typeSchema: userSchema, collection: "user" });

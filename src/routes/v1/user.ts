@@ -241,7 +241,7 @@ export const useUserRoutes = (props: UseUserRoutesProps) => {
         await me.genToken();
       }
 
-      me.content.tokenforreset = undefined;
+      me.content.tokenForReset = undefined;
       await me.update();
       const apiToken = await me.getAPIToken();
       setCookie(res, encodeTokenForCookie(me.content), cookie);

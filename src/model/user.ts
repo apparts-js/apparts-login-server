@@ -16,11 +16,11 @@ export const userSchema = types.obj({
     .key(),
   email: types.email().public(),
   token: types.base64().optional(),
-  tokenforreset: types.base64().optional(),
-  tokenforresetexpiry: types.int().semantic("date").optional(),
+  tokenForReset: types.base64().optional(),
+  tokenForResetExpiry: types.int().semantic("date").optional(),
   hash: types.any().optional(),
   deleted: types.boolean().default(false),
-  createdon: types
+  created: types
     .int()
     .semantic("time")
     .default(() => Date.now())
@@ -51,13 +51,13 @@ export abstract class BaseUsers<
     const isValidToken = token && token === this.content.token;
     const isValidResetToken =
       token &&
-      token === this.content.tokenforreset &&
-      (this.content.tokenforresetexpiry || 0) > Date.now();
+      token === this.content.tokenForReset &&
+      (this.content.tokenForResetExpiry || 0) > Date.now();
     if (!isValidToken && !isValidResetToken) {
       throw new HttpError(401, "Unauthorized");
     }
-    if (this.content.tokenforreset) {
-      this.content.tokenforreset = undefined;
+    if (this.content.tokenForReset) {
+      this.content.tokenForReset = undefined;
       this.resetTokenUsed = true;
       await this.update();
     }
@@ -121,8 +121,8 @@ export abstract class BaseUsers<
   async genResetToken() {
     const { resettokenLength, resettokenExpireTime } =
       this.getEncryptionSettings();
-    this.content.tokenforreset = await this.genSecureStr(resettokenLength);
-    this.content.tokenforresetexpiry =
+    this.content.tokenForReset = await this.genSecureStr(resettokenLength);
+    this.content.tokenForResetExpiry =
       Date.now() +
       (typeof resettokenExpireTime === "number"
         ? resettokenExpireTime
@@ -153,7 +153,7 @@ export abstract class BaseUsers<
 
   async deleteMe() {
     this.content.token = undefined;
-    this.content.tokenforreset = undefined;
+    this.content.tokenForReset = undefined;
     this.content.deleted = true;
     await this.update();
   }
