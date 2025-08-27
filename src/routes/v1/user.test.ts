@@ -402,8 +402,13 @@ describe("logout", () => {
     expect(setCookie).toStrictEqual([
       "loginToken=%2F; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict",
     ]);
-
     expect(checkType(response, "logout")).toBeTruthy();
+
+    // session is invalidated
+    const responseNoAuth = await request(app)
+      .get(url("user"))
+      .auth("tester@test.de", user.content.token!);
+    expect(responseNoAuth.statusCode).toBe(401);
   });
 });
 
@@ -522,6 +527,8 @@ describe("get user", () => {
   });
   test("Success", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    await user.genToken();
+    await user.update();
     const response = await request(app)
       .get(url("user"))
       .auth("tester@test.de", user.content.token!);

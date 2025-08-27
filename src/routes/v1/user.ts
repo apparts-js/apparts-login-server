@@ -1,3 +1,4 @@
+import { Request } from "express";
 import { NotFound, NotUnique } from "@apparts/model";
 import { HttpError, httpErrorSchema, prepare } from "@apparts/prep";
 import * as types from "@apparts/types";
@@ -21,6 +22,26 @@ const makeFakeSchema = (type) =>
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }) as types.Obj<any, any>;
+
+const getUserFromReq = async (req: Request, User: UserConstructorType) => {
+  const cookieContent = decodeCookie(req.headers.cookie ?? "");
+  // @ts-expect-error 2339
+  const dbs = req.ctx.dbs;
+  const me = new User(dbs);
+  let email = "",
+    token = "";
+  try {
+    [email, token] = basicAuth(req);
+    if ((!email || !token) && cookieContent) {
+      [email, token] = cookieContent;
+    }
+    await me.loadOne({ email });
+    await me.checkAuth(token);
+    return me;
+  } catch {
+    throw new HttpError(401, "Unauthorized");
+  }
+};
 
 export const useUserRoutes = (props: UseUserRoutesProps) => {
   const { Users: User, mail, cookie, extraTypes } = props;
@@ -109,7 +130,15 @@ export const useUserRoutes = (props: UseUserRoutesProps) => {
       returns: [types.value("ok")],
       hasAccess: async () => true,
     },
-    async (_, res) => {
+    async (req, res) => {
+      try {
+        const user = await getUserFromReq(req, User);
+        user.content.token = undefined;
+        await user.update();
+      } catch {
+        // ignore errors
+      }
+
       setCookie(res, "/", cookie);
       return "ok" as const;
     },
@@ -184,23 +213,7 @@ export const useUserRoutes = (props: UseUserRoutesProps) => {
       hasAccess: async () => true,
     },
     async (req, res) => {
-      const cookieContent = decodeCookie(req.headers.cookie ?? "");
-
-      // @ts-expect-error 2339
-      const dbs = req.ctx.dbs;
-      const me = new User(dbs);
-      let email = "",
-        token = "";
-      try {
-        [email, token] = basicAuth(req);
-        if ((!email || !token) && cookieContent) {
-          [email, token] = cookieContent;
-        }
-        await me.loadOne({ email });
-        await me.checkAuth(token);
-      } catch (e) {
-        return new HttpError(401, "Unauthorized");
-      }
+      const me = await getUserFromReq(req, User);
 
       if (!me.isOne) {
         return new HttpError(401, "Unauthorized");
