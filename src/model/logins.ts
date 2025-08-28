@@ -5,7 +5,7 @@ import * as types from "@apparts/types";
 export const loginSchema = types.obj({
   id: types
     .string()
-    // .semantic("id")
+    .semantic("id")
     .public()
     .default(() => uuid())
     .key(),
@@ -13,9 +13,10 @@ export const loginSchema = types.obj({
     .int()
     .semantic("time")
     .default(() => Date.now())
+    .readOnly()
     .public(),
-  userId: types.string().public(),
-  success: types.boolean().public().optional(),
+  userId: types.string().public().readOnly(),
+  success: types.boolean().public().optional().readOnly(),
 });
 export type LoginType = types.InferType<typeof loginSchema>;
 

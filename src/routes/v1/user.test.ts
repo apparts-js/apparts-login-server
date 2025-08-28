@@ -1,9 +1,16 @@
 import { useModel } from "@apparts/model";
-import { BaseLogins, loginSchema } from "../../model/logins";
 import request from "supertest";
 import { addRoutes } from "../";
+import { BaseLogins, loginSchema } from "../../model/logins";
+import { BaseSessions, sessionSchema } from "../../model/sessions";
 import { BaseUsers, userSchema } from "../../model/user";
-import { useUserRoutes } from "./user";
+import { useUserRoutes } from "./";
+import beTests from "@apparts/backend-test";
+import testConfig from "./tests/config";
+import { get as getConfig } from "@apparts/config";
+import JWT from "jsonwebtoken";
+import { Mailer } from "types";
+import { PasswordNotValidError } from "../../errors";
 
 const jestFn = jest.fn;
 const mailObj = {
@@ -13,6 +20,12 @@ const mailObj = {
 };
 
 class User extends BaseUsers<typeof userSchema> {
+  getSessions() {
+    return BaseSessions;
+  }
+  getLogins() {
+    return BaseLogins;
+  }
   getWelcomeMail() {
     return {
       title: "Willkommen",
@@ -41,13 +54,12 @@ class User extends BaseUsers<typeof userSchema> {
   }
 }
 useModel(User, { typeSchema: userSchema, collection: "user" });
-
 useModel(BaseLogins, { typeSchema: loginSchema, collection: "login" });
+useModel(BaseSessions, {
+  typeSchema: sessionSchema,
+  collection: "userSession",
+});
 
-import { OtherUsers } from "../../tests/otherUser";
-
-import beTests from "@apparts/backend-test";
-import testConfig from "./tests/config";
 const settings = {
   Users: User,
   mail: (() => mailObj) as unknown as Mailer,
@@ -69,18 +81,9 @@ app.use((req, res, next) => {
 
 addRoutes({ app, ...settings });
 
-const { updateUser: updateOtherUser, getToken: getOtherUserToken } =
-  useUserRoutes({ ...settings, Users: OtherUsers });
-app.put("/v/1/other/user", updateOtherUser);
-app.get("/v/1/other/user/login", getOtherUserToken);
-
-import { get as getConfig } from "@apparts/config";
 const {
   apiToken: { webtokenkey, expireTime },
 } = getConfig("login-config");
-
-import JWT from "jsonwebtoken";
-import { Mailer } from "types";
 
 const jwt = (email, id, extra = {}, action = "login", expiresIn = expireTime) =>
   JWT.sign(
@@ -158,9 +161,13 @@ describe("getToken", () => {
       id: user.content.id,
       apiToken: jwt("tester@test.de", user.content.id),
     });
+    const sessions = await new BaseSessions(getPool()).load({
+      userId: user.content.id,
+      valid: true,
+    });
     const setCookie = response.headers["set-cookie"];
     expect(setCookie).toMatchObject([
-      `loginToken=${getToken(user.content.email, user.content.token!)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
+      `loginToken=${getToken(user.content.email, sessions.contents[0].token)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
     ]);
     const token = setCookie[0].split(";")[0].split("=")[1];
     expect(atob(decodeURIComponent(token)).split(":")[0]).toBe(
@@ -209,17 +216,40 @@ describe("getToken", () => {
     for (let i = 0; i < 7; i++) {
       responses.push(
         await request(app)
-          .get(url("other/user/login"))
+          .get(url("user/login"))
           .auth("tester@test.de", "b12345678"),
       );
+      dateNowAll = jest
+        .spyOn(Date, "now")
+        .mockImplementation(() => 1575158400000 + 1000 * 60 * 60 * 9.7 + i);
     }
 
     responses.push(
       await request(app)
-        .get(url("other/user/login"))
+        .get(url("user/login"))
         // now try correct login, should fail too
         .auth("tester@test.de", "a12345678"),
     );
+
+    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const logins = await new BaseLogins(getPool()).load(
+      {
+        userId: user.content.id,
+      },
+      8,
+      0,
+      [{ key: "created", dir: "DESC" }],
+    );
+    expect(logins.contents.map((l) => l.success)).toMatchObject([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
 
     expect(responses).toMatchObject([
       { statusCode: 401 },
@@ -240,12 +270,12 @@ describe("getToken", () => {
       .mockImplementation(() => 1575158400000 + 1000 * 60 * 60 * 9.7 * 3);
 
     const lastResponse = await request(app)
-      .get(url("other/user/login"))
+      .get(url("user/login"))
       .auth("tester@test.de", "b12345678");
     expect(lastResponse).toMatchObject({ statusCode: 401 });
     expect(checkType(lastResponse, "getToken")).toBeTruthy();
     const veryLastResponse = await request(app)
-      .get(url("other/user/login"))
+      .get(url("user/login"))
       .auth("tester@test.de", "b12345678");
     expect(veryLastResponse).toMatchObject({ statusCode: 425 });
     expect(checkType(veryLastResponse, "getToken")).toBeTruthy();
@@ -259,11 +289,12 @@ describe("getToken", () => {
 describe("getAPIToken", () => {
   test("User does not exist", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const sessions = await user.loadSessions();
     const response = await request(app)
       .get(url("user/apiToken"))
       .set(
         "Cookie",
-        `loginToken=${getToken("doesnotexist@test.de", user.content.token!)}`,
+        `loginToken=${getToken("doesnotexist@test.de", sessions[0].token)}`,
       );
 
     expect(response.body).toMatchObject(error("Unauthorized"));
@@ -272,9 +303,10 @@ describe("getAPIToken", () => {
   });
   test("Empty email address", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const sessions = await user.loadSessions();
     const response = await request(app)
       .get(url("user/apiToken"))
-      .set("Cookie", `loginToken=${getToken("", user.content.token!)}`);
+      .set("Cookie", `loginToken=${getToken("", sessions[0].token)}`);
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
@@ -317,15 +349,18 @@ describe("getAPIToken", () => {
   });
 
   test("Success", async () => {
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const user = await (
+      await new User(getPool(), [{ email: "apitoken@test.de" }]).setPw(
+        "a12345678",
+      )
+    ).store();
+    const token = await user.createSession({ browser: "test" });
+
     const response = await request(app)
       .get(url("user/apiToken"))
-      .set(
-        "Cookie",
-        `loginToken=${getToken(user.content.email, user.content.token!)}`,
-      );
+      .set("Cookie", `loginToken=${getToken(user.content.email, token)}`);
 
-    expect(response.body).toBe(jwt("tester@test.de", user.content.id));
+    expect(response.body).toBe(jwt("apitoken@test.de", user.content.id));
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "getAPIToken")).toBeTruthy();
   });
@@ -446,7 +481,6 @@ describe("signup", () => {
     });
     expect(user.content.email).toBe("newuser@test.de");
     expect(user.content.created).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
-    expect(user.content.token).toBeTruthy();
     expect(user.content.tokenForReset).toBeTruthy();
 
     expect(mailObj.sendMail.mock.calls).toHaveLength(1);
@@ -485,7 +519,6 @@ describe("signup", () => {
     });
     expect(user.content.email).toBe("newuser2@test.de");
     expect(user.content.created).toBe(1575158400000 + 1000 * 60 * 60 * 9.7);
-    expect(user.content.token).toBeTruthy();
     expect(user.content.tokenForReset).toBeTruthy();
     expect(mockFn.mock.calls).toHaveLength(1);
     expect(mockFn.mock.calls[0][0]).toMatchObject({
@@ -530,11 +563,13 @@ describe("get user", () => {
   });
   test("Success", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
-    await user.genToken();
+    await user.createSession({ browser: "test" });
     await user.update();
+    const sessions = await user.loadSessions();
+
     const response = await request(app)
       .get(url("user"))
-      .auth("tester@test.de", user.content.token!);
+      .auth("tester@test.de", sessions[0].token);
     expect(response.body).toMatchObject({
       email: "tester@test.de",
       id: user.content.id,
@@ -558,13 +593,14 @@ describe("reset password", () => {
     const userOld = await new User(getPool()).loadOne({
       email: "tester@test.de",
     });
-
+    const sessions = await userOld.loadSessions();
     const response = await request(app).post(url("user/tester@test.de/reset"));
     expect(response.body).toBe("ok");
     expect(response.statusCode).toBe(200);
     expect(checkType(response, "resetPassword")).toBeTruthy();
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
-    expect(user.content.token).toBe(userOld.content.token);
+    const newSessions = await user.loadSessions();
+    expect(sessions).toMatchObject(newSessions);
     expect(user.content.tokenForReset).toBeTruthy();
 
     expect(mailObj.sendMail.mock.calls).toHaveLength(1);
@@ -630,93 +666,167 @@ describe("alter user", () => {
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
   test("Alter password with loginToken in cookies", async () => {
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const user = await (
+      await new User(getPool(), [{ email: "alterpw@test.de" }]).setPw(
+        "a12345678",
+      )
+    ).store();
     const response = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "a12345678");
+      .auth("alterpw@test.de", "a12345678");
     expect(response.body).toMatchObject({
       id: user.content.id,
-      apiToken: jwt("tester@test.de", user.content.id),
+      apiToken: jwt("alterpw@test.de", user.content.id),
     });
+    const sessions = await user.loadSessions();
     const response2 = await request(app)
       .put(url("user"))
       .set(
         "Cookie",
-        `loginToken=${getToken(user.content.email, user.content.token!)}`,
+        `loginToken=${getToken(user.content.email, sessions[0].token)}`,
       )
       .send({ password: "jkl123a9a##" });
     expect(response2.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
-      email: "tester@test.de",
+      email: "alterpw@test.de",
     });
-    expect(usernew.content.token === user.content.token).toBeFalsy();
+    expect(sessions).toMatchObject(await usernew.loadSessions());
     expect(response2.body).toMatchObject({
       id: user.content.id,
-      apiToken: jwt("tester@test.de", user.content.id),
+      apiToken: jwt("alterpw@test.de", user.content.id),
     });
     const response3 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "a12345678");
+      .auth("alterpw@test.de", "a12345678");
     expect(response3.statusCode).toBe(401);
     const response4 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "jkl123a9a##");
+      .auth("alterpw@test.de", "jkl123a9a##");
     expect(response4.body).toMatchObject({
       id: user.content.id,
-      apiToken: jwt("tester@test.de", user.content.id),
+      apiToken: jwt("alterpw@test.de", user.content.id),
     });
     const setCookie = response.headers["set-cookie"];
     expect(setCookie).toMatchObject([
-      `loginToken=${getToken(user.content.email, user.content.token!)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
+      `loginToken=${getToken(user.content.email, sessions[0].token)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
     ]);
 
     expect(checkType(response2, "updateUser")).toBeTruthy();
   });
 
   test("Alter password with resetToken", async () => {
-    await request(app).post(url("user/tester@test.de/reset"));
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const userBefore = await (
+      await new User(getPool(), [{ email: "alterpwreset@test.de" }]).setPw(
+        "a12345678",
+      )
+    ).store();
+    await userBefore.createSession({ browser: "test" });
+    const sessionsBefore = await userBefore.loadSessions();
+
+    await request(app).post(url("user/alterpwreset@test.de/reset"));
+
+    const user = await new User(getPool()).loadOne({
+      email: "alterpwreset@test.de",
+    });
     const resetToken = user.content.tokenForReset!;
+    expect(sessionsBefore).toMatchObject(await user.loadSessions());
+
     const response = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", resetToken)
+      .auth("alterpwreset@test.de", resetToken)
       .send({ password: "?aoRisetn39!!" });
     expect(response.statusCode).toBe(200);
     const usernew = await new User(getPool()).loadOne({
-      email: "tester@test.de",
+      email: "alterpwreset@test.de",
     });
-    expect(usernew.content.token === user.content.token).toBeFalsy();
+    const newSessions = await usernew.loadSessions();
+    expect(newSessions).toHaveLength(2);
+    expect(sessionsBefore).toMatchObject([newSessions[0]]);
+
     expect(response.body).toMatchObject({
       id: user.content.id,
-      apiToken: jwt("tester@test.de", user.content.id),
+      apiToken: jwt("alterpwreset@test.de", user.content.id),
     });
 
     // reset token is single use
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", resetToken)
+      .auth("alterpwreset@test.de", resetToken)
       .send({ password: "?aoRisetn39!!" });
     expect(response2.statusCode).toBe(401);
 
     // old password does not work
     const response3 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "jkl123a9a##");
+      .auth("alterpwreset@test.de", "jkl123a9a##");
     expect(response3.statusCode).toBe(401);
 
     // new password works
     const response4 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "?aoRisetn39!!");
+      .auth("alterpwreset@test.de", "?aoRisetn39!!");
     expect(response4.body).toMatchObject({
       id: user.content.id,
-      apiToken: jwt("tester@test.de", user.content.id),
+      apiToken: jwt("alterpwreset@test.de", user.content.id),
     });
 
     expect(checkType(response, "updateUser")).toBeTruthy();
   });
 
+  test("Alter password and reset all sessions", async () => {
+    const user = await (
+      await new User(getPool(), [{ email: "resetsessions@test.de" }]).setPw(
+        "a12345678",
+      )
+    ).store();
+    await user.createSession({ browser: "test0" });
+    await user.createSession({ browser: "test1" });
+    await user.createSession({ browser: "test2" });
+    const sessions = await user.loadSessions();
+    expect(sessions).toHaveLength(3);
+    const response2 = await request(app)
+      .put(url("user"))
+      .set(
+        "Cookie",
+        `loginToken=${getToken(user.content.email, sessions[0].token)}`,
+      )
+      .send({ password: "jkl123a9a##", invalidateSessions: true });
+    expect(response2.statusCode).toBe(200);
+    const usernew = await new User(getPool()).loadOne({
+      id: user.content.id,
+    });
+    const newSessions = await usernew.loadSessions();
+    expect(newSessions).toHaveLength(1);
+    expect(sessions[0]).not.toMatchObject(newSessions[0]);
+    expect(sessions[1]).not.toMatchObject(newSessions[0]);
+    expect(sessions[2]).not.toMatchObject(newSessions[0]);
+
+    const setCookie = response2.headers["set-cookie"];
+    expect(setCookie).toMatchObject([
+      `loginToken=${getToken(user.content.email, newSessions[0].token)}; Max-Age=31536000; Path=/; Expires=Mon, 30 Nov 2020 09:42:00 GMT; HttpOnly; Secure; SameSite=Strict`,
+    ]);
+
+    expect(checkType(response2, "updateUser")).toBeTruthy();
+  });
+
   test("Refuses to alter password if password does not meet requirements", async () => {
+    class PWUser extends User {
+      async setPw(password: string) {
+        if (password.length < 10) {
+          throw new PasswordNotValidError("Password must be 10+ characters");
+        }
+        await super.setPw(password);
+        return this;
+      }
+    }
+    useModel(PWUser, { typeSchema: userSchema, collection: "user" });
+
+    const { updateUser: updateOtherUser } = useUserRoutes({
+      ...settings,
+      Users: PWUser,
+    });
+    app.put("/v/1/other/user", updateOtherUser);
+
     await request(app).post(url("user/tester@test.de/reset"));
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
 
@@ -734,9 +844,10 @@ describe("alter user", () => {
 
   test("Don't alter anything", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const sessions = await user.loadSessions();
     const response2 = await request(app)
       .put(url("user"))
-      .auth("tester@test.de", user.content.token!)
+      .auth("tester@test.de", sessions[0].token)
       .send({});
     expect(response2.statusCode).toBe(400);
     expect(response2.body).toMatchObject({
@@ -788,9 +899,15 @@ describe("delete user", () => {
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Wrong auth", async () => {
+    const user = await (
+      await new User(getPool(), [{ email: "deleteme@test.de" }]).setPw(
+        "a12345678",
+      )
+    ).store();
+
     const response = await request(app)
       .del(url("user"))
-      .auth("tester@test.de", "aorsitenrstne");
+      .auth(user.content.email, "aorsitenrstne");
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "deleteUser")).toBeTruthy();
@@ -798,38 +915,44 @@ describe("delete user", () => {
   test("Missing token", async () => {
     const response = await request(app)
       .del(url("user"))
-      .auth("tester@test.de", "");
+      .auth("deleteme@test.de", "");
     expect(response.body).toMatchObject(error("Authorization wrong"));
     expect(response.statusCode).toBe(400);
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Token login", async () => {
-    const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const user = await new User(getPool()).loadOne({
+      email: "deleteme@test.de",
+    });
+    await user.createSession({});
+    const sessions = await user.loadSessions();
     const response = await request(app)
       .del(url("user"))
-      .auth("tester@test.de", user.content.token!);
+      .auth("deleteme@test.de", sessions[0].token);
     expect(response.body).toMatchObject(error("Unauthorized"));
     expect(response.statusCode).toBe(401);
     expect(checkType(response, "deleteUser")).toBeTruthy();
   });
   test("Delete user", async () => {
-    await new User(getPool()).loadOne({ email: "tester@test.de" });
+    await new User(getPool()).loadOne({ email: "deleteme@test.de" });
 
     const response1 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "?aoRisetn39!!");
+      .auth("deleteme@test.de", "a12345678");
     expect(response1.statusCode).toBe(200);
     const response = await request(app)
       .del(url("user"))
-      .auth("tester@test.de", "?aoRisetn39!!");
+      .auth("deleteme@test.de", "a12345678");
     expect(response.body).toBe("ok");
     const response3 = await request(app)
       .get(url("user/login"))
-      .auth("tester@test.de", "?aoRisetn39!!");
+      .auth("deleteme@test.de", "a12345678");
     expect(response3.body).toMatchObject(error("User not found"));
     expect(response3.statusCode).toBe(401);
 
-    const response4 = await request(app).post(url("user/tester@test.de/reset"));
+    const response4 = await request(app).post(
+      url("user/deleteme@test.de/reset"),
+    );
     expect(response4.body).toMatchObject(error("User not found"));
     expect(response4.statusCode).toBe(404);
 

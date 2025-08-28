@@ -6,6 +6,9 @@ import crypto from "crypto";
 import JWT from "jsonwebtoken";
 import ms from "ms";
 import { v7 as uuid } from "uuid";
+import { SessionConstructorType } from "./sessions";
+import { checkAuthPwExponential } from "../exponentialBackoff";
+import { LoginConstructorType } from "./logins";
 
 export const userSchema = types.obj({
   id: types
@@ -15,7 +18,6 @@ export const userSchema = types.obj({
     .default(() => uuid())
     .key(),
   email: types.email().public(),
-  token: types.base64().optional(),
   tokenForReset: types.base64().optional(),
   tokenForResetExpiry: types.int().semantic("date").optional(),
   hash: types.any().optional(),
@@ -46,9 +48,35 @@ export abstract class BaseUsers<
     resettokenLength: number;
     resettokenExpireTime: number | ms.StringValue;
   };
+  abstract getSessions(): SessionConstructorType;
+  abstract getLogins(): LoginConstructorType;
+
+  async loadBySessionToken(email: string, token: string) {
+    const session = new (this.getSessions())(this._dbs);
+    await session.loadOne({ token, valid: true });
+    await (this as BaseUsers<typeof userSchema>).loadOne({
+      email,
+      deleted: false,
+      id: session.content.userId,
+    });
+    return this;
+  }
+
+  async loadSessions() {
+    const sessions = new (this.getSessions())(this._dbs);
+    await sessions.load({ userId: this.content.id, valid: true });
+    return sessions.contents;
+  }
 
   async _checkToken(token: string) {
-    const isValidToken = token && token === this.content.token;
+    const sessions = new (this.getSessions())(this._dbs);
+    await sessions.load({
+      userId: this.content.id,
+      token,
+      valid: true,
+    });
+
+    const isValidToken = token && sessions.length() > 0;
     const isValidResetToken =
       token &&
       token === this.content.tokenForReset &&
@@ -81,7 +109,16 @@ export abstract class BaseUsers<
   }
 
   async checkAuthPw(password: string) {
-    return this._checkPw(password);
+    await checkAuthPwExponential(
+      this._dbs,
+      this.getLogins(),
+      this.content.id,
+      password,
+      async (password) => {
+        await this._checkPw(password);
+      },
+    );
+    return this;
   }
 
   async setPw(password: string) {
@@ -93,12 +130,19 @@ export abstract class BaseUsers<
     return this;
   }
 
-  async genToken() {
-    const token = await this.genSecureStr(
-      this.getEncryptionSettings().cookieTokenLength,
-    );
-    this.content.token = token;
-    return this;
+  async createSession(details: { ip?: string; browser?: string; os?: string }) {
+    const session = new (this.getSessions())(this._dbs, [
+      {
+        userId: this.content.id,
+        token: await this.genSecureStr(
+          this.getEncryptionSettings().cookieTokenLength,
+        ),
+        details,
+        valid: true,
+      },
+    ]);
+    await session.store();
+    return session.content.token;
   }
 
   private async genSecureStr(length: number) {
@@ -111,11 +155,6 @@ export abstract class BaseUsers<
         }
       });
     });
-  }
-
-  async store() {
-    await this.genToken();
-    return await super.store();
   }
 
   async genResetToken() {
@@ -151,13 +190,34 @@ export abstract class BaseUsers<
     });
   }
 
+  private async invalidateSessions(filter: { token?: string } = {}) {
+    const sessions = new (this.getSessions())(this._dbs);
+    await sessions.load({ userId: this.content.id, valid: true, ...filter });
+    for (const session of sessions.contents) {
+      session.valid = false;
+    }
+    await sessions.update();
+  }
+
+  async invalidateSession(token: string) {
+    await this.invalidateSessions({ token });
+  }
+
+  async invalidateAllSessions() {
+    await this.invalidateSessions();
+  }
+
   async deleteMe() {
-    this.content.token = undefined;
+    const sessions = new (this.getSessions())(this._dbs);
+    await sessions.delete({ userId: this.content.id });
+
     this.content.tokenForReset = undefined;
     this.content.deleted = true;
     await this.update();
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type UserConstructorType = new (...ps: any[]) => BaseUsers<any>;
+export type UserConstructorType = new (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...ps: any[]
+) => BaseUsers<typeof userSchema>;

@@ -9,7 +9,15 @@
 1. ~npm i --save @apparts/login-server~
 2. Add the package to your codebase:
    #+BEGIN_SRC js
-     import { addUserRoutes, BaseUsers, userSchema, } from "@apparts/login-server";
+     import {
+       addUserRoutes,
+       BaseUsers,
+       userSchema,
+       BaseSessions,
+       sessionSchema,
+       BaseLogins,
+       loginSchema,
+     } from "@apparts/login-server";
      import { useModel } from "@apparts/model";
      import express from "express";
 
@@ -20,6 +28,12 @@
 
 
      export class Users extends BaseUsers<typeof userSchema> {
+       getSessions() {
+         return BaseSessions;
+       }
+       getLogins() {
+         return BaseLogins;
+       }
        getWelcomeMail() {
          return {
            title: "Willkommen",
@@ -48,6 +62,8 @@
        }
      }
      useModel(Users, { typeSchema: userSchema, collection: "users" });
+     useModel(BaseSessions, { typeSchema: sessionSchema, collection: "userSessions" });
+     useModel(BaseLogins, { typeSchema: loginSchema, collection: "userLogins" });
 
      const app = express();
      // ...
@@ -170,32 +186,8 @@ import { PasswordNotValidError } from "@apparts/login-server";
 
 *** Login: Exponential Backoff
 
-To archive exponential backoff you need to create a database table
-=logins= and use the =createLoginsModel= function to generate the model.
-
-Then you can overwrite the =checkAuthPw= function of the user model:
-
-#+BEGIN_SRC js
-  import { BaseLogins, loginSchema } from "@apparts/login-server";
-  import { useModel } from "@apparts/model";
-
-  export class Logins extends BaseLogins<typeof loginSchema> {}
-  useModel(Logins, { typeSchema: loginSchema, collection: "logins" });
-
-  import { checkAuthPwExponential } from "@apparts/login-server";
-
-  //...
-
-    checkAuthPw(password) {
-      return checkAuthPwExponential(
-        this._dbs,
-        Logins,
-        this.content.id,
-        password,
-        async (password) => { await super.checkAuthPw(password); }
-      );
-    }
-#+END_SRC
+All routes that require username and password have automatic
+exponential backoff after five failed attempts in a row.
 
 *** Overwriting functions of the User-model
 

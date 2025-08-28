@@ -19,8 +19,8 @@ export const decodeCookie = (cookieStr: string) => {
   }
 };
 
-export const encodeTokenForCookie = (user: { email: string; token: string }) =>
-  btoa(user.email + ":" + user.token);
+export const encodeTokenForCookie = (email: string, token: string) =>
+  btoa(email + ":" + token);
 
 export const setCookie = (
   res: Response,

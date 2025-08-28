@@ -2,12 +2,21 @@ import { GenericDBS } from "@apparts/db";
 import { useModel } from "@apparts/model";
 import * as types from "@apparts/types";
 import { BaseUsers, userSchema } from "./user";
+import { BaseLogins } from "./logins";
+import { BaseSessions } from "./sessions";
 
 const fakeDbs = {} as GenericDBS;
 
 describe("user model", () => {
   it("should createUserModel", () => {
     class Users extends BaseUsers<typeof userSchema> {
+      getLogins() {
+        return BaseLogins;
+      }
+      getSessions() {
+        return BaseSessions;
+      }
+
       getWelcomeMail() {
         return {
           title: "Willkommen",
@@ -48,6 +57,13 @@ describe("user model", () => {
     });
 
     class Users extends BaseUsers<typeof customUserSchema> {
+      getLogins() {
+        return BaseLogins;
+      }
+      getSessions() {
+        return BaseSessions;
+      }
+
       getWelcomeMail() {
         return {
           title: "Willkommen",

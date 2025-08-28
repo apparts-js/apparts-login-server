@@ -36,6 +36,9 @@ export const checkAuthPwExponential = async (
     const nextAllowedTry =
       lastLogInAttempt + Math.pow(2, failedLogInAttempts - 5) * 1000 * 60;
     if (Date.now() <= nextAllowedTry) {
+      thisLogin.content.success = false;
+      await thisLogin.update();
+
       throw new HttpError(
         425,
         "Login failed, too often.",
