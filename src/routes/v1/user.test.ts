@@ -426,11 +426,12 @@ describe("logout", () => {
   });
   test("Success", async () => {
     const user = await new User(getPool()).loadOne({ email: "tester@test.de" });
+    const sessions = await user.loadSessions();
     const response = await request(app)
       .put(url("user/logout"))
       .set(
         "Cookie",
-        `loginToken=${getToken(user.content.email, user.content.token!)}`,
+        `loginToken=${getToken(user.content.email, sessions[0].token)}`,
       );
 
     expect(response.body).toBe("ok");
@@ -445,7 +446,7 @@ describe("logout", () => {
     // session is invalidated
     const responseNoAuth = await request(app)
       .get(url("user"))
-      .auth("tester@test.de", user.content.token!);
+      .auth("tester@test.de", sessions[0].token);
     expect(responseNoAuth.statusCode).toBe(401);
   });
 });
