@@ -7,6 +7,7 @@ import { makeFakeSchema } from "./utils/makeFakeSchema";
 export const addUser = (props: UseUserRoutesProps) =>
   prepare(
     {
+      ...props.prepOptions,
       title: "Add a user",
       receives: {
         body: makeFakeSchema({

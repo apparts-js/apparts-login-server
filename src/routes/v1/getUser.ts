@@ -7,6 +7,7 @@ import { UseUserRoutesProps } from "../../types";
 export const getUser = (props: UseUserRoutesProps) =>
   prepauthToken(props.Users)(
     {
+      ...props.prepOptions,
       title: "Get a user",
       receives: {},
       returns: [

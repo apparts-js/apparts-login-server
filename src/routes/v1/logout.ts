@@ -7,6 +7,7 @@ import { getUserFromCookie } from "./utils/getUserFrom";
 export const logout = (props: UseUserRoutesProps) =>
   prepare(
     {
+      ...props.prepOptions,
       title: "Logout",
       receives: {},
       returns: [types.value("ok")],

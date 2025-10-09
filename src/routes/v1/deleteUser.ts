@@ -6,6 +6,7 @@ import { UseUserRoutesProps } from "../../types";
 export const deleteUser = (props: UseUserRoutesProps) =>
   prepauthPW(props.Users)(
     {
+      ...props.prepOptions,
       title: "Delete a user",
       receives: {},
       returns: [types.value("ok"), httpErrorSchema(401, "Unauthorized")],

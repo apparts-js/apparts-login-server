@@ -6,6 +6,7 @@ import { UseUserRoutesProps } from "../../types";
 export const resetPassword = (props: UseUserRoutesProps) =>
   prepare(
     {
+      ...props.prepOptions,
       title: "Reset the password",
       receives: {
         params: types.obj({

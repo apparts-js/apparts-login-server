@@ -8,6 +8,7 @@ import { makeFakeSchema } from "./utils/makeFakeSchema";
 export const getAPIToken = (props: UseUserRoutesProps) =>
   prepare(
     {
+      ...props.prepOptions,
       title: "Renew API Token",
       receives: {},
       returns: [

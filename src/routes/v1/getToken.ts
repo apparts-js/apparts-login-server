@@ -8,6 +8,7 @@ import { sessionDetailsFromRequest } from "./utils/sessionDetails";
 export const getToken = (props: UseUserRoutesProps) =>
   prepauthPW(props.Users)(
     {
+      ...props.prepOptions,
       title: "Login",
       receives: {},
       returns: [

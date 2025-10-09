@@ -9,6 +9,7 @@ import { sessionDetailsFromRequest } from "./utils/sessionDetails";
 export const updateUser = (props: UseUserRoutesProps) =>
   prepare(
     {
+      ...props.prepOptions,
       title: "Update a user",
       description: "Currently, only updating the password is supported.",
       receives: {
